@@ -54,8 +54,9 @@ class MessageIn(BaseModel):
 
 def create_app(root: Path, *, backends: dict[str, ChatBackend] | None = None, db_path: Path | None = None,
                abstract_fn: Callable[[str], str] | None = None, fetch_fn: Callable[[str], dict] | None = None,
-               topics: list[str] | None = None, linkedin=None) -> FastAPI:
-    svc = Service(root, db_path or root / "data" / "paper_analyst.db", backends, abstract_fn, fetch_fn, topics, linkedin)
+               topics: list[str] | None = None, linkedin=None, config_dir: Path | None = None) -> FastAPI:
+    svc = Service(root, db_path or root / "data" / "paper_analyst.db", backends, abstract_fn, fetch_fn, topics, linkedin,
+                  config_dir)
     if backends is None:   # 실제 서버: 두 세션 모두 (꺼져 있으면 화면에서 잠김)
         from paper_analyst.chat import ClaudeBackend, LocalBackend
         svc.backends = {"claude": ClaudeBackend(root), "local": LocalBackend(svc.local_tools())}

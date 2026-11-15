@@ -104,7 +104,9 @@ class FakeLI:
 FAKE_LI = FakeLI()
 backends = {"claude": Fake("claude", "Claude Code", True),
             "local": Fake("local", "로컬 LLM", False, "로컬 LLM 서버가 꺼져 있습니다. LLM.md §2 의 명령으로 켜세요.")}
-app = create_app(TMP, backends=backends, db_path=TMP / "data" / "ui.db", linkedin=FAKE_LI,
+CFG = TMP / "cfg"   # LinkedIn 키·토큰 (실제 ~/.config/side-projects 는 건드리지 않음)
+(CFG / "tokens").mkdir(parents=True)
+app = create_app(TMP, backends=backends, db_path=TMP / "data" / "ui.db", linkedin=FAKE_LI, config_dir=CFG,
                  abstract_fn=lambda a: f"{a} 의 초록입니다. 에이전트 하네스에 대한 연구." * 3)
 with socket.socket() as s:
     s.bind(("127.0.0.1", 0))
@@ -297,11 +299,11 @@ with sync_playwright() as p:
     page.click("button[data-ptab='linkedin']")
     page.wait_for_selector(".pubbar")
     check("LinkedIn: 앱 키 없음 안내", "앱 키가 필요" in page.inner_text(".pubbar"))
-    (TMP / "data" / "linkedin_app.json").write_text(json.dumps({"client_id": "c", "client_secret": "s"}))
+    (CFG / "linkedin_app.json").write_text(json.dumps({"client_id": "c", "client_secret": "s"}))
     page.click("#tab-lib"); page.click("#tab-pub")
     page.wait_for_selector(".pubbar a[href='/api/linkedin/connect']")
     check("LinkedIn: 연결 버튼", True)
-    (TMP / "data" / "linkedin_token.json").write_text(json.dumps({"access_token": "t", "expires_at": time.time() + 86400 * 50,
+    (CFG / "tokens" / "paper_analyst-linkedin.json").write_text(json.dumps({"access_token": "t", "expires_at": time.time() + 86400 * 50,
                                                                   "sub": "s1", "name": "테스트 계정"}))
     page.click("#tab-lib"); page.click("#tab-pub")
     page.wait_for_selector("#li-publish")

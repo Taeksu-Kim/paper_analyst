@@ -13,5 +13,6 @@
 - 논문 기간 조건은 **arXiv 발표일 기준**으로 엄격히 ("올해" = 올해 발표). 수상 시점으로 넓히지 않는다.
 - 도구는 `python -m paper_analyst.<도구>` (패키지). 화면은 `python -m paper_analyst serve` (127.0.0.1:8768).
 - 화면을 고치면 `python tools/browser_check.py` (n/m PASS) 와 `python -m pytest tests -q` 를 돌리고 스크린샷을 직접 본다.
-- 화면의 Claude Code 세션 권한은 `paper_analyst/chat.py` 의 `ALLOWED` 하나에서만 정한다. 파일 쓰기 규칙은 `Edit(<경로>/**)` 형태
+- 화면의 Claude Code 세션 권한은 `paper_analyst/chat.py` 의 `ALLOWED` 하나에서만 정한다. 읽기도 `Read(./**)` 처럼 경로를 붙인다
+  (경로 없는 `Read` 는 디스크 전체를 허용 — 실측). 파일 쓰기 규칙은 `Edit(<경로>/**)` 형태
   (실측: `Write(...)` 로는 허용이 안 됨). 공통 CLAUDE.md 때문에 파이썬을 절대경로로 부르므로 두 형태를 다 허용한다.

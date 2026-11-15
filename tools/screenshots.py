@@ -88,12 +88,14 @@ class LI:   # 발행 캡처에서 '연결됨' 상태를 보이려는 가짜 (실
         raise RuntimeError("캡처 중 게시 안 함")
 
 
+CFG = TMP / "cfg"
+(CFG / "tokens").mkdir(parents=True, exist_ok=True)
 (TMP / "data").mkdir(parents=True, exist_ok=True)
-(TMP / "data" / "linkedin_app.json").write_text(json.dumps({"client_id": "demo", "client_secret": "demo"}))
-(TMP / "data" / "linkedin_token.json").write_text(json.dumps({"access_token": "demo", "expires_at": time.time() + 86400 * 59,
+(CFG / "linkedin_app.json").write_text(json.dumps({"client_id": "demo", "client_secret": "demo"}))
+(CFG / "tokens" / "paper_analyst-linkedin.json").write_text(json.dumps({"access_token": "demo", "expires_at": time.time() + 86400 * 59,
                                                               "sub": "demo", "name": "내 LinkedIn 계정"}))
 app = create_app(TMP, backends={"claude": Demo(), "local": Off()}, db_path=TMP / "data" / "shots.db",
-                 abstract_fn=lambda a: "", linkedin=LI())
+                 abstract_fn=lambda a: "", linkedin=LI(), config_dir=CFG)
 with socket.socket() as s:
     s.bind(("127.0.0.1", 0))
     PORT = s.getsockname()[1]

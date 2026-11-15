@@ -263,10 +263,12 @@ def test_linkedin_publish(tmp_path):
     import os, stat, urllib.parse
     root = make_root(tmp_path)
     fake = FakeLinkedIn()
-    c = TestClient(create_app(root, backends={}, db_path=root / "data" / "t.db", topics=[], linkedin=fake))
+    cfg = root / "cfg"
+    c = TestClient(create_app(root, backends={}, db_path=root / "data" / "t.db", topics=[], linkedin=fake, config_dir=cfg))
     assert c.get("/api/linkedin").json()["configured"] is False
     assert c.get("/api/linkedin/connect", follow_redirects=False).status_code == 503
-    (root / "data" / "linkedin_app.json").write_text(json.dumps({"client_id": "cid", "client_secret": "sec"}))
+    cfg.mkdir()
+    (cfg / "linkedin_app.json").write_text(json.dumps({"client_id": "cid", "client_secret": "sec"}))
     r = c.get("/api/linkedin/connect", follow_redirects=False)
     assert r.status_code == 307 and r.headers["location"].startswith("https://www.linkedin.com/oauth/v2/authorization?")
     q = urllib.parse.parse_qs(urllib.parse.urlparse(r.headers["location"]).query)
@@ -277,7 +279,7 @@ def test_linkedin_publish(tmp_path):
     assert c.get(f"/api/linkedin/callback?code=good-code&state={q['state'][0]}").status_code == 400  # 같은 state 재사용
     st = c.get("/api/linkedin").json()
     assert st["connected"] and st["name"] == "테스트 계정"
-    tf = root / "data" / "linkedin_token.json"
+    tf = cfg / "tokens" / "paper_analyst-linkedin.json"
     assert stat.S_IMODE(os.stat(tf).st_mode) == 0o600
     # 초안: 개인 메모 겹침 → 거부
     d = root / "posts" / "p1"

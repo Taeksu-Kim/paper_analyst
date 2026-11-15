@@ -46,10 +46,10 @@ class Service:
     def __init__(self, root: Path, db_path: Path, backends: dict[str, ChatBackend] | None = None,
                  abstract_fn: Callable[[str], str] | None = None,
                  fetch_fn: Callable[[str], dict] | None = None, topics: list[str] | None = None,
-                 linkedin: "LI.LinkedInClient | None" = None) -> None:
+                 linkedin: "LI.LinkedInClient | None" = None, config_dir: Path | None = None) -> None:
         self.root = root
         self.li = linkedin or LI.HttpLinkedIn()
-        self.li_store = LI.Store(db_path.parent)
+        self.li_store = LI.Store(config_dir)
         self._oauth_states: dict[str, float] = {}
         self._publish_lock = threading.Lock()
         self._topics = topics
@@ -130,7 +130,7 @@ class Service:
         import secrets
         app = self.li_store.app()
         if not app:
-            raise Unavailable("LinkedIn 앱 키가 없습니다. README 'LinkedIn 게시' 절대로 앱을 만들고 키를 넣은 뒤 서버를 다시 켜세요.")
+            raise Unavailable("LinkedIn 앱 키가 없습니다. 터미널에서 `python -m paper_analyst.linkedin setup` 으로 넣으세요 (README 'LinkedIn 게시').")
         now = time.time()
         self._oauth_states = {s: t for s, t in self._oauth_states.items() if now - t < 600}
         state = secrets.token_urlsafe(16)

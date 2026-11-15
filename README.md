@@ -48,7 +48,7 @@ claude                                 # Claude Code 설치·로그인 (스킬�
 **대화 세션 2종**
 - **Claude Code** — 서버가 이 폴더에서 `claude -p --output-format stream-json`(첫 턴 `--session-id`, 이후 `--resume`)을 실행한다.
   스킬·CLAUDE.md 가 그대로 적용되고, 결과 파일이 생기면 서재가 바로 갱신된다. **대화 내용이 Anthropic 으로 전송된다.**
-  권한은 허용 목록만 (`paper_analyst/chat.py` `ALLOWED`): 도구 실행(`python -m paper_analyst.*`), 읽기·검색, 웹 검색,
+  권한은 허용 목록만 (`paper_analyst/chat.py` `ALLOWED`): 도구 실행(`python -m paper_analyst.*`), **저장소 안** 읽기·검색 (밖은 거부), 웹 검색,
   `library/`·`lists/`·`ideas/`·`profiles/`·`posts/` 쓰기. 그 밖은 거부되고 화면에 "거부" 로 보인다 (화면에서 승인하는 창구는 없다).
 - **로컬 LLM** — vLLM(OpenAI 호환, 기본 `http://<호스트 IP>:8002/v1`, `PAPER_LLM_URL` 로 변경)의 Qwen. 서재 조회·notes 읽기·제목→id·
   후보 보기·받기 도구만 쓴다 (정리는 하지 않는다). 서버가 꺼져 있으면 선택지가 잠기고 켜는 법이 보인다.
@@ -61,8 +61,10 @@ claude                                 # Claude Code 설치·로그인 (스킬�
 1. LinkedIn 개발자 사이트에서 앱 만들기 — **LinkedIn 페이지 연결이 필수**다 (개인 프로필에만 올려도). 페이지 관리자가 연결을 승인한다
 2. 앱의 Products 에서 **Share on LinkedIn**, **Sign In with LinkedIn using OpenID Connect** 추가
 3. Auth 의 Redirect URL 에 `http://127.0.0.1:8768/api/linkedin/callback`
-4. 키를 환경변수 `LINKEDIN_CLIENT_ID`·`LINKEDIN_CLIENT_SECRET` 또는 `data/linkedin_app.json` (`{"client_id": "...", "client_secret": "..."}`, git 제외) 에 두고 서버를 켠다
-5. 발행 탭 → **LinkedIn 연결** → 로그인·승인 → 토큰은 `data/linkedin_token.json` (권한 600, git 제외)
+4. **이 대화·화면 밖의 터미널**에서 `python -m paper_analyst.linkedin setup` → Client ID 와 Secret 입력 (Secret 은 화면에 안 보임).
+   `~/.config/side-projects/linkedin_app.json` (권한 600) 에 저장된다 — 저장소 밖이라 git 에도, 화면의 Claude 세션에도 닿지 않는다.
+   같은 앱을 다른 프로젝트도 쓸 수 있다 (같은 권한 범위로 연결하고, Redirect URL 만 프로젝트별로 추가). 위치는 `SIDE_PROJECTS_CONFIG` 로 변경
+5. 서버를 켜고 발행 탭 → **LinkedIn 연결** → 로그인·승인 → 토큰은 `~/.config/side-projects/tokens/paper_analyst-linkedin.json` (권한 600). 상태 확인: `python -m paper_analyst.linkedin status`
 
 - 게시: 발행 탭의 LinkedIn 보기에서 **LinkedIn 에 게시** → 확인 창(계정·글자 수) → 게시. 점검 경고(개인 메모 겹침·길이 초과)가 남으면 잠기고,
   미리보기 뒤 초안이 바뀌었으면 거부하며, 한 글은 한 번만 올린다. 게시 기록(글 링크·시각)은 초안의 `meta.json` 에
