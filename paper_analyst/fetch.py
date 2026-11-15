@@ -281,7 +281,7 @@ def main() -> int:
     ap.add_argument("--parse", action="store_true", help="텍스트 변환 (parsed/paper.md)")
     ap.add_argument("--via", choices=["auto", "html", "pdf"], default="auto",
                     help="변환 경로: auto=HTML 먼저, 없으면 PDF (기본)")
-    ap.add_argument("--layout-url", help="PDF 경로에서 doc_parser 레이아웃 서버 (tools/ocr.sh start 출력 주소)")
+    ap.add_argument("--layout-url", help="PDF 경로에서 doc_parser 레이아웃 서버 (doc_reader/doc_parser/tools/ocr.sh start 출력 주소)")
     ap.add_argument("--force", action="store_true", help="이미 있어도 다시 받고 다시 변환")
     ap.add_argument("--reparse", action="store_true",
                     help="받아 둔 paper.html·paper.pdf 로 변환만 다시 (변환기를 고쳤을 때)")

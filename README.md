@@ -97,7 +97,8 @@ python -m paper_analyst.resolve "Memory Tax: Dissecting the Net Value of Agent M
 
 ```bash
 python -m paper_analyst.fetch 2604.12374 https://arxiv.org/abs/2609.05933 --parse   # 기본: HTML → 없으면 PDF
-python -m paper_analyst.fetch 2604.12374 --via pdf --layout-url http://<host>:8090   # PDF 경로 강제 (doc_parser 필요)
+python -m paper_analyst.fetch 2604.12374 --via pdf --layout-url http://<host>:8090   # PDF 경로 강제 (doc_parser 필요,
+                                                                                     # 레이아웃 서버: doc_reader/doc_parser/tools/ocr.sh start)
 python -m paper_analyst.fetch 2604.12374 --reparse      # 변환기 고친 뒤: 받아 둔 html/pdf 로 변환만 다시
 ```
 
@@ -159,8 +160,8 @@ python -m paper_analyst.enrich 2604.12374 --refresh           # 7일 캐시 무�
 
 ## 알려진 문제
 
-- **PDF 경로의 2단 편집은 읽기 순서가 섞인다** (doc_parser 한계, 좌우 단 줄이 번갈아 붙음). arXiv 논문은 HTML 로
-  피하지만, ACL Anthology 등 PDF 만 있는 논문은 doc_parser 개선이 필요 — 별도 과제.
+- **PDF 경로의 2단 편집은 읽기 순서가 섞인다** (좌우 단 줄이 번갈아 붙음). arXiv 논문은 HTML 로 피한다.
+  PDF 만 있는 논문(ACL Anthology 등)의 읽기 순서는 **doc_reader(doc_parser) 쪽 과제**다 — 이 저장소에서는 고치지 않는다.
 - HTML: 제목 아래 라이선스 문구·처리 안 된 매크로 한 줄이 남는 논문이 있다 (Attention, SWE-MeM). 표 캡션은 표 뒤에 온다.
 - HTML 그림 중 같은 파일을 두 번 참조하는 경우가 있다 (Nemotron: 링크 26, 파일 20).
 
