@@ -196,6 +196,14 @@ with sync_playwright() as p:
     check("후보함 탭 숫자", page.inner_text("#cand-n").strip().isdigit(), page.inner_text("#cand-n"))
     check("대화 없음 안내 + 입력 잠김", "새 대화" in page.inner_text("#msgs") and page.is_disabled("#input"))
     page.screenshot(path=str(TMP / "shot_1440_home.png"))
+    page.click("#profile")
+    pop = page.inner_text("#profile-pop") if page.is_visible("#profile-pop") else ""
+    check("프로필: 누르면 설명 (관점·관심 주제·찾는 곳·바꾸는 법)", all(k in pop for k in ("읽는 관점", "관심 주제", "후보 찾는 곳", "paper-setup")), pop[:80])
+    page.screenshot(path=str(TMP / "shot_1440_profile.png"))
+    page.keyboard.press("Escape")
+    check("프로필: Esc 로 닫고 칩으로 포커스", not page.is_visible("#profile-pop") and page.evaluate("document.activeElement.id") == "profile")
+    page.click("#profile"); page.click(".brand")   # 아무 동작 없는 곳
+    check("프로필: 밖을 누르면 닫힘", not page.is_visible("#profile-pop"))
 
     # 논문 열기
     page.click("#main button.concl[data-paper='2605.15184']")

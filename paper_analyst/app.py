@@ -84,7 +84,9 @@ def create_app(root: Path, *, backends: dict[str, ChatBackend] | None = None, db
         from paper_analyst import profile as P
         try:
             prof = P.load()
-            p = {"name": prof["name"], "description": prof.get("description", ""), "language": prof.get("reader", {}).get("language", "ko")}
+            p = {"name": prof["name"], "description": prof.get("description", ""), "language": prof.get("reader", {}).get("language", "ko"),
+                 "lens": prof.get("reader", {}).get("lens", ""), "topics": prof.get("interests", {}).get("topics", []),
+                 "sources": prof.get("discover", {}).get("sources", [])}
         except SystemExit as e:
             p = {"name": None, "error": str(e)}
         return {"profile": p, "backends": svc.backends_status()}
