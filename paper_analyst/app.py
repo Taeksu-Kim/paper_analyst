@@ -28,14 +28,30 @@ class ChatIn(BaseModel):
     backend: str
 
 
+class TagsIn(BaseModel):
+    tags: list[str]
+
+
+class LinkIn(BaseModel):
+    src: str
+    dst: str
+    kind: str
+    note: str = ""
+
+
+class MemoIn(BaseModel):
+    text: str
+
+
 class MessageIn(BaseModel):
     text: str
     paper_id: str | None = None
 
 
 def create_app(root: Path, *, backends: dict[str, ChatBackend] | None = None, db_path: Path | None = None,
-               abstract_fn: Callable[[str], str] | None = None, fetch_fn: Callable[[str], dict] | None = None) -> FastAPI:
-    svc = Service(root, db_path or root / "data" / "paper_analyst.db", backends, abstract_fn, fetch_fn)
+               abstract_fn: Callable[[str], str] | None = None, fetch_fn: Callable[[str], dict] | None = None,
+               topics: list[str] | None = None) -> FastAPI:
+    svc = Service(root, db_path or root / "data" / "paper_analyst.db", backends, abstract_fn, fetch_fn, topics)
     if backends is None:   # 실제 서버: 두 세션 모두 (꺼져 있으면 화면에서 잠김)
         from paper_analyst.chat import ClaudeBackend, LocalBackend
         svc.backends = {"claude": ClaudeBackend(root), "local": LocalBackend(svc.local_tools())}
@@ -79,6 +95,26 @@ def create_app(root: Path, *, backends: dict[str, ChatBackend] | None = None, db
     @app.put("/api/papers/{aid}/status")
     def set_status(aid: str, body: StatusIn):
         return guard(svc.set_status, aid, body.status)
+
+    @app.put("/api/papers/{aid}/tags")
+    def set_tags(aid: str, body: TagsIn):
+        return guard(svc.set_tags, aid, body.tags)
+
+    @app.put("/api/papers/{aid}/memo")
+    def set_memo(aid: str, body: MemoIn):
+        return guard(svc.set_memo, aid, body.text)
+
+    @app.post("/api/links")
+    def add_link(body: LinkIn):
+        return guard(svc.add_link, body.src, body.dst, body.kind, body.note)
+
+    @app.delete("/api/links/{lid}")
+    def delete_link(lid: int):
+        return guard(svc.delete_link, lid)
+
+    @app.get("/api/compare")
+    def compare(ids: str):
+        return guard(svc.compare, [i for i in ids.split(",") if i])
 
     @app.get("/api/docs/{kind}/{name}")
     def doc(kind: str, name: str):

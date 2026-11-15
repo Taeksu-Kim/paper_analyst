@@ -19,6 +19,8 @@ from paper_analyst.store import Store
 STATUSES = {"to_read": "읽을 것", "fetched": "받음", "noted": "정리됨", "applied": "적용함", "hold": "보류", "excluded": "제외"}
 OVERRIDES = {"to_read", "applied", "hold", "excluded"}      # 사람이 정하는 상태 (나머지는 파일에서 나옴)
 DECISIONS = {"read": "읽기", "hold": "보류", "exclude": "제외"}
+# 연결은 방향이 있다: src → dst = "src 는 dst 의 <kind>" (후속·반박) / 같은 방향·관련은 대칭으로 보여 준다
+LINK_KINDS = {"follows": "후속", "refutes": "반박", "agrees": "같은 방향", "related": "관련"}
 
 
 class NotFound(Exception):
@@ -36,8 +38,9 @@ class Unavailable(Exception):
 class Service:
     def __init__(self, root: Path, db_path: Path, backends: dict[str, ChatBackend] | None = None,
                  abstract_fn: Callable[[str], str] | None = None,
-                 fetch_fn: Callable[[str], dict] | None = None) -> None:
+                 fetch_fn: Callable[[str], dict] | None = None, topics: list[str] | None = None) -> None:
         self.root = root
+        self._topics = topics
         self.store = Store(db_path)
         self.abstract_fn = abstract_fn or _abstract_online
         self.fetch_fn = fetch_fn or _fetch_paper
@@ -66,8 +69,16 @@ class Service:
                 items.append({"id": c["id"], "title": c["title"] or c["id"], "status": st, "conclusion": "",
                               "has_notes": False, "has_private": False, "noted_at": 0, "published": "", "category": ""})
         items = [i for i in items if i["status"] != "excluded"]
+        tags = self._tags()
+        for i in items:
+            i["tags"] = tags.get(i["id"], [])
         counts = {k: sum(1 for i in items if i["status"] == k) for k in STATUSES}
-        return {"papers": items, "docs": L.scan_docs(self.root), "counts": counts, "status_names": STATUSES}
+        tag_counts: dict[str, int] = {}
+        for i in items:
+            for tg in i["tags"]:
+                tag_counts[tg] = tag_counts.get(tg, 0) + 1
+        return {"papers": items, "docs": L.scan_docs(self.root), "counts": counts, "status_names": STATUSES,
+                "tags": dict(sorted(tag_counts.items(), key=lambda kv: (-kv[1], kv[0]))), "link_kinds": LINK_KINDS}
 
     def paper(self, aid: str) -> dict:
         lib = {p["id"]: p for p in self.library()["papers"]}
@@ -75,10 +86,109 @@ class Service:
             raise NotFound(aid)
         f = L.paper_files(self.root, aid)
         cand = self.store.candidate(aid)
+        papers = L.scan_papers(self.root)
+        links = self._links(aid, lib)
+        linked = {l["other"] for l in links}
+        suggest_links = [{"id": o, "title": lib[o]["title"]} for o in L.mentions(f["notes"], aid, papers)
+                         if o in lib and o not in linked] if f["notes"] else []
+        tags = lib[aid]["tags"]
+        suggest_tags = [t for t in L.suggest_tags(f["notes"], lib[aid]["title"], self.topics()) if t not in tags] if f["notes"] else []
         return {**lib[aid], "abstract": f["meta"].get("abstract") or (cand or {}).get("abstract") or "",
                 "authors": f["meta"].get("authors", []), "abs_url": f"https://arxiv.org/abs/{aid}",
                 "notes_html": L.to_html(f["notes"]) if f["notes"] else "",
-                "private_html": L.to_html(f["private"]) if f["private"] else ""}
+                "private_html": L.to_html(f["private"]) if f["private"] else "",
+                "memo": f["memo"], "can_memo": (self.root / "library" / "papers" / aid / "meta.json").is_file(),
+                "links": links, "suggest_links": suggest_links, "suggest_tags": suggest_tags}
+
+    # ── 태그·연결·메모·비교 ─────────────────────────────
+    def topics(self) -> list[str]:
+        if self._topics is None:
+            from paper_analyst import profile as P
+            try:
+                self._topics = list(P.load().get("interests", {}).get("topics", []))
+            except SystemExit:
+                self._topics = []
+        return self._topics
+
+    def _tags(self) -> dict[str, list[str]]:
+        out: dict[str, list[str]] = {}
+        for r in self.store.q("SELECT id, tag FROM paper_tags ORDER BY tag"):
+            out.setdefault(r["id"], []).append(r["tag"])
+        return out
+
+    def set_tags(self, aid: str, tags: list[str]) -> dict:
+        self._known(aid)
+        clean = []
+        for t in tags:
+            t = " ".join(str(t).split())[:60]
+            if t and t not in clean:
+                clean.append(t)
+        with self.store.lock:
+            self.store.db.execute("DELETE FROM paper_tags WHERE id=?", (aid,))
+            self.store.db.executemany("INSERT INTO paper_tags VALUES (?,?)", [(aid, t) for t in clean])
+            self.store.db.commit()
+        return {"id": aid, "tags": clean}
+
+    def _known(self, aid: str) -> dict:
+        lib = {p["id"]: p for p in self.library()["papers"]}
+        if aid not in lib:
+            raise NotFound(aid)
+        return lib
+
+    def _links(self, aid: str, lib: dict) -> list[dict]:
+        out = []
+        for r in self.store.q("SELECT * FROM links WHERE src=? OR dst=? ORDER BY created_at", (aid, aid)):
+            other = r["dst"] if r["src"] == aid else r["src"]
+            out.append({"id": r["id"], "kind": r["kind"], "kind_name": LINK_KINDS.get(r["kind"], r["kind"]),
+                        "direction": "out" if r["src"] == aid else "in", "other": other,
+                        "other_title": (lib.get(other) or {}).get("title", other), "note": r["note"] or ""})
+        return out
+
+    def add_link(self, src: str, dst: str, kind: str, note: str = "") -> dict:
+        if kind not in LINK_KINDS:
+            raise ValueError(f"연결 종류: {sorted(LINK_KINDS)}")
+        if src == dst:
+            raise ValueError("같은 논문끼리는 연결할 수 없습니다")
+        lib = self._known(src)
+        if dst not in lib:
+            raise NotFound(dst)
+        if self.store.q("SELECT id FROM links WHERE (src=? AND dst=?) OR (src=? AND dst=?)", (src, dst, dst, src)):
+            raise ValueError("이미 연결된 논문입니다 — 종류를 바꾸려면 지우고 다시 연결하세요")
+        lid = self.store.x("INSERT INTO links (src, dst, kind, note, created_at) VALUES (?,?,?,?,?)",
+                           (src, dst, kind, (note or "")[:300], time.time()))
+        return {"id": lid, "links": self._links(src, lib)}
+
+    def delete_link(self, lid: int) -> dict:
+        if not self.store.q("SELECT id FROM links WHERE id=?", (lid,)):
+            raise NotFound(str(lid))
+        self.store.x("DELETE FROM links WHERE id=?", (lid,))
+        return {"deleted": lid}
+
+    def set_memo(self, aid: str, text: str) -> dict:
+        d = self.root / "library" / "papers" / aid
+        if not (d / "meta.json").is_file():
+            raise ValueError("받은 논문에만 메모를 남길 수 있습니다 (먼저 받기)")
+        f = d / "memo.private.md"
+        text = (text or "").rstrip()
+        if text:
+            tmp = f.with_suffix(".tmp")
+            tmp.write_text(text + "\n", encoding="utf-8")
+            tmp.replace(f)
+        else:
+            f.unlink(missing_ok=True)
+        return {"id": aid, "memo": text, "saved_at": time.time()}
+
+    def compare(self, ids: list[str]) -> list[dict]:
+        lib = {p["id"]: p for p in self.library()["papers"]}
+        out = []
+        for aid in dict.fromkeys(ids):
+            if aid not in lib:
+                raise NotFound(aid)
+            notes = L.paper_files(self.root, aid)["notes"]
+            out.append({"id": aid, "title": lib[aid]["title"], "published": lib[aid]["published"],
+                        "status": lib[aid]["status"], "tags": lib[aid]["tags"], "verdict": lib[aid]["conclusion"],
+                        "parts": [{"label": x["label"], "html": L.to_html(x["md"])} for x in L.conclusion_parts(notes)]})
+        return out
 
     def set_status(self, aid: str, status: str | None) -> dict:
         if status is not None and status not in OVERRIDES:

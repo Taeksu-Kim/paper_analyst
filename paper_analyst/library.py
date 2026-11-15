@@ -48,6 +48,74 @@ def conclusion(md: str) -> str:
     return " ".join(_section(md, "한 줄 요약").split())
 
 
+def conclusion_parts(md: str) -> list[dict]:
+    """결론 절의 '- **라벨:** 내용' 항목들 (가져갈 것·믿어도 되는 결과·해석에 주의할 결과·읽는다면). 비교 보기에 쓴다."""
+    body = _section(md, "결론")
+    parts: list[dict] = []
+    for m in re.finditer(r"^- \*\*([^*\n]+?):?\*\*:?\s*(.*?)(?=^- \*\*|\Z)", body, re.M | re.S):
+        text = _dedent_rest(m.group(2).strip())
+        parts.append({"label": m.group(1).strip().rstrip(":"), "md": text})
+    return parts
+
+
+def _dedent_rest(text: str) -> str:
+    """'- **라벨:** 첫 줄' 뒤의 이어지는 줄들은 항목 안쪽으로 들여 쓰여 있다 → 공통 들여쓰기를 걷어 목록·문단으로 읽히게."""
+    lines = text.split("\n")
+    rest = [l for l in lines[1:] if l.strip()]
+    cut = min((len(l) - len(l.lstrip(" ")) for l in rest), default=0)
+    return "\n".join([lines[0]] + [l[cut:] for l in lines[1:]])
+
+
+def _acronym(topic: str) -> str:
+    words = [w for w in re.split(r"[\s\-]+", topic) if w]
+    return "".join(w[0] for w in words).upper() if len(words) >= 3 else ""
+
+
+def suggest_tags(md: str, title: str, topics: list[str]) -> list[str]:
+    """프로필 관심 주제 중 notes 의 '관심 주제와의 연결' 절이나 제목에 나온 것 (약어 RAG 등도)."""
+    text = _section(md, "관심 주제와의 연결") + "\n" + title
+    low = text.lower()
+    out = []
+    for t in topics:
+        ac = _acronym(t)
+        if t.lower() in low or (ac and re.search(rf"\b{re.escape(ac)}\b", text)):
+            out.append(t)
+    return out
+
+
+def short_name(title: str) -> str:
+    """notes 에서 다른 논문을 부르는 이름: 콜론 앞, 콜론이 없으면 앞 세 단어 (예: 'Meta-Harness', 'LLMs Get Lost')."""
+    name = title.split(":")[0] if ":" in title else " ".join(title.split()[:3])
+    return name.strip()
+
+
+def mentions(md: str, self_id: str, papers: dict[str, "Paper"]) -> list[str]:
+    """notes 본문에 나온 다른 서재 논문 (arXiv id 또는 짧은 이름). 연결 제안에 쓴다."""
+    out = []
+    for p in papers.values():
+        if p.id == self_id:
+            continue
+        if p.id in md or _named(md, p.title):
+            out.append(p.id)
+    return out
+
+
+def _named(md: str, title: str) -> bool:
+    """짧은 이름이 나오고, 바로 뒤 영어 단어들이 그 논문 제목과 어긋나지 않을 때만
+    ('Rethinking the Evaluation of Harness…' 는 'Rethinking the Evaluation of Efficiency…' 가 아니다)."""
+    name = short_name(title)
+    if len(name) < 8:
+        return False
+    rest = title[len(name):].lstrip(": ").split() if title.startswith(name) else []
+    for m in re.finditer(re.escape(name), md):
+        if re.match(r"-?[A-Za-z0-9]", md[m.end():m.end() + 2]):   # 'DeepSeek-V4-Pro' 는 'DeepSeek-V4' 가 아니다
+            continue
+        after = re.match(r"[ \-]*((?:[A-Za-z][\w\-]*\s*){0,2})", md[m.end():]).group(1).split()
+        if all(i < len(rest) and w.lower() == rest[i].lower() for i, w in enumerate(after)) or ":" in title:
+            return True
+    return False
+
+
 def scan_papers(root: Path) -> dict[str, Paper]:
     out: dict[str, Paper] = {}
     base = root / "library" / "papers"
@@ -78,7 +146,7 @@ def paper_files(root: Path, aid: str) -> dict:
     d = root / "library" / "papers" / aid
     meta = json.loads((d / "meta.json").read_text(encoding="utf-8")) if (d / "meta.json").is_file() else {}
     read = lambda f: (d / f).read_text(encoding="utf-8") if (d / f).is_file() else ""
-    return {"meta": meta, "notes": read("notes.md"), "private": read("notes.private.md")}
+    return {"meta": meta, "notes": read("notes.md"), "private": read("notes.private.md"), "memo": read("memo.private.md")}
 
 
 def scan_docs(root: Path) -> list[dict]:

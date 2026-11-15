@@ -18,6 +18,9 @@ CREATE TABLE IF NOT EXISTS runs (id INTEGER PRIMARY KEY, chat_id INT, status TEX
   cost REAL, error TEXT);
 CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY, chat_id INT, run_id INT, type TEXT, data TEXT, at REAL);
 CREATE INDEX IF NOT EXISTS events_chat ON events(chat_id, id);
+CREATE TABLE IF NOT EXISTS paper_tags (id TEXT NOT NULL, tag TEXT NOT NULL, PRIMARY KEY (id, tag));
+CREATE TABLE IF NOT EXISTS links (id INTEGER PRIMARY KEY, src TEXT NOT NULL, dst TEXT NOT NULL, kind TEXT NOT NULL,
+  note TEXT, created_at REAL, UNIQUE (src, dst));
 """
 
 
