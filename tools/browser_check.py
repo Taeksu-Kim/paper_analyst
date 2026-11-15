@@ -445,6 +445,39 @@ with sync_playwright() as p:
     sid = json.loads(urllib.request.urlopen(URL + "api/chats").read())[0]["session_id"]
     check("세션 id 저장", sid == "fake-session", str(sid))
 
+    # 키보드: 건너뛰기 링크, 서재 목록은 Tab 한 번 + 화살표
+    page.goto(URL); page.wait_for_selector("#lib-list .item")
+    page.keyboard.press("Tab")
+    first = page.evaluate("(() => { const e = document.activeElement; return [e.dataset.skip, e.getBoundingClientRect().top >= 0]; })()")
+    check("키보드: 첫 Tab 은 '본문으로' 건너뛰기 (보임)", first == ["main", True], str(first))
+    page.keyboard.press("Enter")
+    check("키보드: 건너뛰기 → 본문에 포커스", page.evaluate("document.activeElement.id") == "main")
+    page.focus("#q")
+    seq = []
+    for _ in range(14):
+        page.keyboard.press("Tab")
+        seq.append(page.evaluate("(() => { const e = document.activeElement; return e.classList.contains('item') ? 'ITEM' : e.tagName + (e.id ? '#' + e.id : '') + ' ' + (e.innerText || '').slice(0, 8); })()"))
+    check("키보드: 서재 목록은 Tab 정지 하나", seq.count("ITEM") == 1 and seq.index("ITEM") < 13, str(seq))
+    page.focus("button[data-f='done']") if page.locator("button[data-f='done']").count() else page.focus("#filters button >> nth=1")
+    fk = page.evaluate("document.activeElement.dataset.f")
+    page.evaluate("loadLib(true)")
+    page.wait_for_timeout(300)
+    check("키보드: 서재를 다시 그려도 포커스 유지", page.evaluate("document.activeElement.dataset.f") == fk, fk)
+    page.focus("#lib-list .item[tabindex='0']")
+    k0 = page.evaluate("document.activeElement.dataset.key")
+    page.keyboard.press("ArrowDown")
+    k1 = page.evaluate("document.activeElement.dataset.key")
+    page.keyboard.press("End")
+    kend = page.evaluate("document.activeElement.dataset.key")
+    last = page.evaluate("[...document.querySelectorAll('#lib-list .item')].pop().dataset.key")
+    check("키보드: ↓·End 로 목록 안 이동", k0 != k1 and kend == last, f"{k0} → {k1}, end {kend}")
+    page.keyboard.press("Home"); page.keyboard.press("ArrowDown")
+    want = page.evaluate("document.activeElement.dataset.paper || document.activeElement.dataset.doc")
+    page.keyboard.press("Enter")
+    page.wait_for_function("document.querySelector('#main h1')")
+    check("키보드: Enter 로 열고, 다시 그려도 그 항목이 Tab 정지",
+          page.evaluate("document.querySelector('#lib-list .item[tabindex=\"0\"]').dataset.key").endswith(want), want)
+
     # 폭 3종 + 다크
     for w, h in ((1280, 900), (768, 1024), (390, 844)):
         page.set_viewport_size({"width": w, "height": h})

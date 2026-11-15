@@ -228,6 +228,12 @@ table.cmp .empty-cell { color: var(--text-3); }
 .sess:empty { display: none; }
 .sess b { color: var(--text); }
 .sess .when { white-space: nowrap; }
+/* 건너뛰기: Tab 을 처음 누를 때만 보인다 */
+.skip { position: absolute; left: 8px; top: -60px; z-index: 50; background: var(--panel); color: var(--accent); border: 2px solid var(--accent);
+  border-radius: var(--radius); padding: 8px 12px; font-weight: 600; text-decoration: none; }
+.skip:focus { top: 8px; }
+.skip[data-skip="chat"] { left: 120px; }   /* 숨어 있을 때도 서로 겹치지 않게 */
+#main:focus { outline: none; }
 .msgs { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
 .msg { max-width: 100%; line-height: 1.6; }
 .msg.user { align-self: flex-end; background: var(--accent-soft); padding: 8px 12px; border-radius: var(--radius-lg); max-width: 88%; white-space: pre-wrap; }
@@ -273,6 +279,7 @@ table.cmp .empty-cell { color: var(--text-3); }
 </style>
 </head>
 <body>
+<nav class="skips" aria-label="건너뛰기"><a class="skip" href="#main" data-skip="main">본문으로</a><a class="skip" href="#input" data-skip="chat">대화로</a></nav>
 <header class="top">
   <span class="brand">paper_analyst</span>
   <span class="chip profile" id="profile" title="현재 프로필">프로필 확인 중…</span>
@@ -356,6 +363,18 @@ function renderCmpTab() {
 }
 
 /* ── 서재 ─────────────────────────────────── */
+// 목록을 다시 그려도 키보드 포커스가 body 로 날아가지 않게: 같은 항목(같은 id·data 값)에 다시 둔다
+function focusKey(e) {
+  if (!e || e === document.body) return null;
+  if (e.id) return '#' + CSS.escape(e.id);
+  for (const k of ['key', 'f', 'tagf', 'paper', 'post', 'cv', 'ptab', 'abs']) if (e.dataset && e.dataset[k] !== undefined) return `[data-${k}="${CSS.escape(e.dataset[k])}"]`;
+  return null;
+}
+function keepFocus(fn) {
+  const a = document.activeElement, key = focusKey(a);
+  fn();
+  if (key && !document.contains(a)) document.querySelector(key)?.focus({ preventScroll: true });
+}
 async function loadLib(markFresh = false) {
   const lib = await api('/api/library');
   if (markFresh && S.seen) {
@@ -366,7 +385,7 @@ async function loadLib(markFresh = false) {
   }
   S.seen = Object.fromEntries(lib.papers.map(p => [p.id, p.noted_at]));
   S.lib = lib;
-  renderFilters(); renderLib(); renderAttach();
+  keepFocus(() => { renderFilters(); renderLib(); renderAttach(); });
   if (markFresh && S.view === 'lib') {
     if (S.sel && S.sel.kind === 'paper') showPaper(S.sel.id, true); else if (!S.sel) welcome();
   }
@@ -389,6 +408,14 @@ function matches(p) {
   if (!S.q) return true;
   return (p.title + ' ' + p.id + ' ' + (p.conclusion || '')).toLowerCase().includes(S.q.toLowerCase());
 }
+// 서재 목록은 Tab 한 번에 지나간다: 항목 하나만 tabindex=0, 안에서는 ↑↓·Home·End
+function rove(focusEl) {
+  const items = [...$('#lib-list').querySelectorAll('.item')];
+  if (!items.length) return;
+  const on = focusEl || items.find(e => e.dataset.key === S.libFocus) || items.find(e => e.getAttribute('aria-current') === 'true') || items[0];
+  for (const e of items) e.tabIndex = e === on ? 0 : -1;
+  if (focusEl) { S.libFocus = focusEl.dataset.key; focusEl.focus(); focusEl.scrollIntoView({ block: 'nearest' }); }
+}
 function renderLib() {
   if (!S.lib) return;   // 서재를 불러오기 전에 다른 탭을 누른 경우 — 불러오면 다시 그린다
   const names = S.lib.status_names, out = [];
@@ -400,7 +427,7 @@ function renderLib() {
     out.push(`<div class="group"><span>${esc(names[st])}</span><span>${ps.length}</span></div>`);
     for (const p of ps) {
       const cur = S.sel && S.sel.kind === 'paper' && S.sel.id === p.id;
-      out.push(`<button class="item" data-paper="${esc(p.id)}" aria-current="${cur}">
+      out.push(`<button class="item" data-key="p:${esc(p.id)}" data-paper="${esc(p.id)}" aria-current="${cur}">
         <span class="t">${esc(p.title)}${S.fresh.has(p.id) ? '<span class="new">새로 정리됨</span>' : ''}</span>
         <span class="m">${esc(p.id)}${p.published ? ' · ' + esc(fmtDate(p.published)) : ''}${p.has_private ? '<span class="lock">개인 메모</span>' : ''}</span>
         ${p.conclusion ? `<span class="c">${esc(p.conclusion)}</span>` : ''}</button>`);
@@ -415,7 +442,7 @@ function renderLib() {
       out.push(`<div class="group"><span>${label}</span><span>${ds.length}</span></div>`);
       for (const d of ds) {
         const cur = S.sel && S.sel.kind === 'doc' && S.sel.name === d.name;
-        out.push(`<button class="item" data-doc="${esc(d.kind)}/${esc(d.name)}" aria-current="${cur}">
+        out.push(`<button class="item" data-key="d:${esc(d.kind)}/${esc(d.name)}" data-doc="${esc(d.kind)}/${esc(d.name)}" aria-current="${cur}">
           <span class="t">${esc(d.title)}</span>
           <span class="m">${esc(d.name.replace('.private', ''))}${d.has_private ? `<span class="lock">${d.private_only ? '비공개' : '개인 메모'}</span>` : ''}</span></button>`);
       }
@@ -424,6 +451,7 @@ function renderLib() {
   $('#lib-list').innerHTML = out.join('') || (S.lib.papers.length || S.lib.docs.length
     ? `<div class="empty"><p>“${esc(S.q)}”에 맞는 항목이 없습니다.</p></div>`
     : `<div class="empty"><h2>서재가 비어 있습니다</h2><p>오른쪽 대화창에서 <span class="ex">2603.28052 정리해줘</span>처럼 시키면 정리된 논문이 여기에 쌓입니다.</p></div>`);
+  rove();
 }
 
 async function showPaper(id, quiet = false) {
@@ -799,7 +827,8 @@ function onEvent(e) {
     if (el) { const st = el.querySelector('.st'); st.className = 'st ' + (d.ok ? 'ok' : 'bad'); st.textContent = d.ok ? '완료' : '거부·실패'; }
     if (!d.ok && d.summary) add(`<div class="tool-err">${esc(d.summary)}</div>`);
   } else if (e.type === 'library_changed') {
-    loadLib(true); loadCand(); if (S.view === 'pub') loadPub(); else loadPubCount();
+    // 지난 기록을 다시 받는 중이면 서재는 이미 최신 — 다시 불러오지 않는다
+    if (!S.replaying) { loadLib(true); loadCand(); if (S.view === 'pub') loadPub(); else loadPubCount(); }
   } else if (e.type === 'error') add(`<div class="endline bad">${esc(d.message)}</div>`);
   else if (e.type === 'done') {
     if (d.denied && d.denied.length) add(`<div class="endline bad">허용 목록 밖의 도구 ${d.denied.length}건이 거부됐습니다 (${esc([...new Set(d.denied)].join(', '))})</div>`);
@@ -809,7 +838,8 @@ function onEvent(e) {
     if (msg) add(`<div class="endline bad">${esc(msg)}</div>`);
     else if (d.cost) add(`<div class="endline" title="Claude 구독(Pro/Max)으로 로그인했으면 추가 요금 없이 사용량 한도에서만 차감됩니다. API 키로 쓰면 이 금액이 청구됩니다.">API 요금 환산 약 $${Number(d.cost).toFixed(2)} · 구독이면 사용량만 차감</div>`);
     box.querySelectorAll('.st.run').forEach(s => { s.className = 'st bad'; s.textContent = '끝나지 않음'; });
-    renderSess(); loadChats(); loadLib(true); loadCand();
+    renderSess();
+    if (!S.replaying) { loadChats(); loadLib(true); loadCand(); }
   }
   if (S.replaying) { clearTimeout(S.replayT); S.replayT = setTimeout(endReplay, 150); return; }
   if (atBottom || e.type === 'user') wrap.scrollTop = wrap.scrollHeight;
@@ -817,6 +847,7 @@ function onEvent(e) {
 function endReplay() {
   S.replaying = false;
   const wrap = $('#msgs-wrap'), last = [...$('#msgs').querySelectorAll('.msg.user')].pop();
+  if (S.running) loadLib(true);   // 답하는 중에 열었으면 재생 사이에 온 '서재 바뀜'을 한 번 반영
   if (S.running || !last) { wrap.scrollTop = wrap.scrollHeight; return; }
   // 마지막 질문과 그 답의 처음이 위에 오게 (답 끝의 잘린 문장부터 보이지 않게)
   wrap.scrollTop += last.getBoundingClientRect().top - wrap.getBoundingClientRect().top - 8;
@@ -952,6 +983,20 @@ document.addEventListener('click', async ev => {
     case 'chat-toggle': return document.body.classList.toggle('chat-open');
     case 'lib-toggle': return document.body.classList.toggle('show-lib');
   }
+});
+$('#lib-list').addEventListener('keydown', e => {
+  const items = [...$('#lib-list').querySelectorAll('.item')], i = items.indexOf(document.activeElement);
+  if (i < 0) return;
+  const to = { ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: items.length - 1 }[e.key];
+  if (to === undefined) return;
+  e.preventDefault(); rove(items[Math.max(0, Math.min(items.length - 1, to))]);
+});
+$('#lib-list').addEventListener('focusin', e => { const it = e.target.closest('.item'); if (it) S.libFocus = it.dataset.key; });
+document.addEventListener('click', e => {   // 건너뛰기 링크: 본문 / 대화 입력(잠겨 있으면 새 대화 버튼)
+  const a = e.target.closest('a[data-skip]'); if (!a) return;
+  e.preventDefault();
+  if (a.dataset.skip === 'main') { const m = $('#main'); m.tabIndex = -1; m.focus(); }
+  else { document.body.classList.add('chat-open'); ($('#input').disabled ? $('#new-chat') : $('#input')).focus(); }
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { $('.menu')?.remove(); document.body.classList.remove('chat-open'); } });
 $('#input').addEventListener('keydown', e => {
