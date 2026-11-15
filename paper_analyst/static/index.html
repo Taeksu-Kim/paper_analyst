@@ -523,6 +523,7 @@ function renderPub() {
   const ch = v ? v.check : null;
   const warn = ch ? [
     ...(ch.private_hits || []).map(h => `${h.line}행이 개인 메모(${esc(h.source)})와 ${Math.round(h.ratio * 100)}% 겹칩니다 — “${esc(h.text)}”`),
+    ...(ch.trace_hits || []).map(h => `${h.line}행에 ${esc(h.kind)}가 있습니다 — “${esc(h.text)}”`),
     ...(ch.over_limit ? [`본문이 ${fmtN(ch.chars)}자로 LinkedIn 한도 ${fmtN(ch.limit)}자를 넘습니다`] : []),
     ...(ch.hook_cut ? ['첫 줄이 길어 ‘더 보기’ 전에 다 보이지 않을 수 있습니다 (약 210자 기준, 어림값)'] : []),
   ] : [];

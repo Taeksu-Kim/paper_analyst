@@ -311,3 +311,25 @@ def test_linkedin_publish(tmp_path):
     assert c.get("/api/linkedin").json()["expired"] is True
     assert c.post("/api/posts/p2/linkedin", json={"sha": sha2}).status_code == 503
     assert c.post("/api/linkedin/disconnect").json()["connected"] is False and not tf.exists()
+
+
+def test_post_other_project_checks(tmp_path):
+    """다른 프로젝트 소개 글: 그 프로젝트의 개인 메모 겹침 + 로컬 경로·이메일 → 경고, 게시 거부."""
+    root = make_root(tmp_path / "pa")
+    proj = tmp_path / "other_proj"
+    (proj / "notes").mkdir(parents=True)
+    (proj / "notes" / "work.private.md").write_text("- 회사 고객사 이름이 들어간 아주 비밀스러운 운영 메모입니다\n")
+    (proj / ".git").mkdir()
+    (proj / ".git" / "x.private.md").write_text("무시돼야 하는 git 내부 파일 문장입니다 아주 길게\n")
+    d = root / "posts" / "2026-11-16_other"
+    d.mkdir(parents=True)
+    (d / "meta.json").write_text(json.dumps({"title": "다른 프로젝트", "project_root": str(proj)}))
+    (d / "linkedin.md").write_text("다른 프로젝트를 만들었습니다.\n\n회사 고객사 이름이 들어간 아주 비밀스러운 운영 메모입니다\n"
+                                   "설치 경로는 /home/someone/projects/x 입니다\n문의 someone@example.com\n#LLM")
+    c = TestClient(create_app(root, backends={}, db_path=root / "data" / "t.db", topics=[], config_dir=root / "cfg"))
+    ch = c.get("/api/posts/2026-11-16_other").json()["linkedin"]["check"]
+    assert [(h["line"], h["source"]) for h in ch["private_hits"]] == [(3, "other_proj/notes/work.private.md")]
+    assert [(h["line"], h["kind"]) for h in ch["trace_hits"]] == [(4, "로컬 경로"), (5, "이메일")]
+    (d / "linkedin.md").write_text("깨끗한 글입니다. https://github.com/x/y 를 참고하세요.\n#LLM")
+    ch = c.get("/api/posts/2026-11-16_other").json()["linkedin"]["check"]
+    assert ch["private_hits"] == [] and ch["trace_hits"] == []
