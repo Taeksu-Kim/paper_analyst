@@ -228,6 +228,10 @@ table.cmp .empty-cell { color: var(--text-3); }
 .sess:empty { display: none; }
 .sess b { color: var(--text); }
 .sess .when { white-space: nowrap; }
+.cmp-pick { margin-top: 18px; text-align: left; }
+.cmp-pick .gh { font-size: var(--fs-cap); color: var(--text-3); font-weight: 700; margin-bottom: 2px; }
+.cmp-pick .row { display: flex; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.cmp-pick .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-label); }
 .inline-confirm { border: 1px solid var(--line-strong); border-radius: var(--radius-lg); background: var(--panel-2); padding: 10px 14px; margin: -6px 0 14px; font-size: var(--fs-label); }
 .inline-confirm p { margin: 0 0 8px; line-height: 1.6; }
 .inline-confirm .row { display: flex; gap: 6px; }
@@ -289,7 +293,7 @@ table.cmp .empty-cell { color: var(--text-3); }
   <nav class="tabs" role="tablist">
     <button class="tab" role="tab" id="tab-lib" aria-selected="true">서재</button>
     <button class="tab" role="tab" id="tab-cand" aria-selected="false">후보함<span class="n" id="cand-n"></span></button>
-    <button class="tab" role="tab" id="tab-cmp" aria-selected="false" hidden>비교<span class="n" id="cmp-n"></span></button>
+    <button class="tab" role="tab" id="tab-cmp" aria-selected="false">비교<span class="n" id="cmp-n"></span></button>
     <button class="tab" role="tab" id="tab-pub" aria-selected="false">발행<span class="n" id="pub-n"></span></button>
   </nav>
   <span class="spacer"></span>
@@ -361,7 +365,7 @@ function loadCmp() { try { return JSON.parse(localStorage.getItem('pa.cmp') || '
 function saveCmp() { try { localStorage.setItem('pa.cmp', JSON.stringify(S.cmp)); } catch { /* 저장 안 돼도 이번 화면에선 동작 */ } renderCmpTab(); }
 function renderCmpTab() {
   const n = S.cmp.length;
-  $('#tab-cmp').hidden = n === 0 && S.view !== 'cmp';
+  // 비어 있어도 탭은 보인다 — 숨기면 이 기능이 있는지 모른다
   $('#cmp-n').textContent = n || '';
 }
 
@@ -538,7 +542,13 @@ async function saveTags(tags) {
 async function renderCompare() {
   renderCmpTab();
   if (!S.cmp.length) {
-    $('#main').innerHTML = `<div class="empty"><h2>비교할 논문이 없습니다</h2><p>정리된 논문을 열고 <b>비교에 담기</b>를 누르면 결론을 나란히 볼 수 있습니다.</p></div>`;
+    const noted = S.lib ? S.lib.papers.filter(p => p.conclusion).sort((a, b) => b.noted_at - a.noted_at).slice(0, 8) : [];
+    $('#main').innerHTML = `<div class="empty"><h2>비교할 논문을 담아 주세요</h2>
+      <p>정리된 논문 여러 편의 <b>결론·가져갈 것·믿어도 되는 결과·주의할 결과</b>를 항목별로 나란히 봅니다.
+      논문 화면의 <b>비교에 담기</b>로, 또는 아래에서 바로 담을 수 있습니다.</p>
+      ${noted.length ? `<div class="cmp-pick"><div class="gh">최근 정리된 논문</div>${noted.map(p => `<div class="row"><span class="t" title="${esc(p.title)}">${esc(p.title)}</span>
+        <button class="btn" data-cmp="${esc(p.id)}">담기</button></div>`).join('')}</div>`
+        : '<p class="hint">아직 정리된 논문이 없습니다. 서재에서 논문을 정리하면 여기서 담을 수 있습니다.</p>'}</div>`;
     return;
   }
   let rows;
@@ -919,7 +929,8 @@ document.addEventListener('click', async ev => {
     const id = t.dataset.cmp;
     S.cmp = S.cmp.includes(id) ? S.cmp.filter(x => x !== id) : [...S.cmp, id]; saveCmp();
     toast(S.cmp.includes(id) ? `비교에 담았습니다 (${S.cmp.length}편)` : '비교에서 뺐습니다');
-    return showPaper(id, true);
+    renderCmpTab();
+    return S.view === 'cmp' ? renderCompare() : showPaper(id, true);
   }
   if (t.dataset.post) { S.post = t.dataset.post; return loadPub(); }
   if (t.dataset.ptab) { S.ptab = t.dataset.ptab; return renderPub(); }
