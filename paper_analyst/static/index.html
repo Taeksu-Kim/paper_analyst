@@ -227,6 +227,7 @@ table.cmp .empty-cell { color: var(--text-3); }
 .sess { font-size: var(--fs-cap); color: var(--text-2); padding: 6px 12px; border-bottom: 1px solid var(--line); background: var(--panel); }
 .sess:empty { display: none; }
 .sess b { color: var(--text); }
+.sess .when { white-space: nowrap; }
 .msgs { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
 .msg { max-width: 100%; line-height: 1.6; }
 .msg.user { align-self: flex-end; background: var(--accent-soft); padding: 8px 12px; border-radius: var(--radius-lg); max-width: 88%; white-space: pre-wrap; }
@@ -336,6 +337,7 @@ async function api(path, opt = {}) {
 }
 function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => el.classList.remove('on'), 2600); }
 const fmtDate = s => (s || '').slice(0, 10);
+const fmtWhen = d => `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 const fmtN = n => Number(n || 0).toLocaleString('ko-KR');
 
 const S = {
@@ -742,7 +744,10 @@ function renderSess() {
       · <b>로컬 LLM</b> — 이 컴퓨터의 Qwen 으로 서재 조회·제목 찾기·받기만 합니다. 정리는 하지 않습니다.</div>`;
     setComposer(false); return;
   }
+  const when = c.updated_at ? new Date(c.updated_at * 1000) : null;
+  const ago = when ? (Date.now() - when) / 864e5 : 0;   // 일 단위
   $('#sess').innerHTML = `세션 <b>${esc(bname(c.backend))}</b>${c.backend === 'claude' ? ' · 내용이 Anthropic 으로 전송됨' : ' · 이 컴퓨터 안에서만'}`
+    + (when && !S.running ? ` · <span class="when" title="${esc(when.toLocaleString('ko-KR'))}">마지막 대화 ${esc(fmtWhen(when))}${ago >= 1 ? ' (지난 대화)' : ''}</span>` : '')
     + (b && !b.available ? ` · <span style="color:var(--err)">지금 쓸 수 없음</span>` : '');
   const ok = !b || b.available;
   setComposer(ok);
@@ -763,6 +768,7 @@ function openChat(id) {
   S.chatId = Number(id); S.tools = {};
   S.running = !!(S.chats.find(c => c.id === S.chatId) || {}).running;
   $('#msgs').innerHTML = ''; renderSess();
+  S.replaying = true; clearTimeout(S.replayT);   // 기록을 다 받을 때까지 스크롤을 미뤘다가, 마지막 질문부터 보이게
   S.es = new EventSource(`/api/chats/${S.chatId}/stream?after=0`);
   S.es.onmessage = m => onEvent(JSON.parse(m.data));
 }
@@ -805,7 +811,15 @@ function onEvent(e) {
     box.querySelectorAll('.st.run').forEach(s => { s.className = 'st bad'; s.textContent = '끝나지 않음'; });
     renderSess(); loadChats(); loadLib(true); loadCand();
   }
+  if (S.replaying) { clearTimeout(S.replayT); S.replayT = setTimeout(endReplay, 150); return; }
   if (atBottom || e.type === 'user') wrap.scrollTop = wrap.scrollHeight;
+}
+function endReplay() {
+  S.replaying = false;
+  const wrap = $('#msgs-wrap'), last = [...$('#msgs').querySelectorAll('.msg.user')].pop();
+  if (S.running || !last) { wrap.scrollTop = wrap.scrollHeight; return; }
+  // 마지막 질문과 그 답의 처음이 위에 오게 (답 끝의 잘린 문장부터 보이지 않게)
+  wrap.scrollTop += last.getBoundingClientRect().top - wrap.getBoundingClientRect().top - 8;
 }
 async function send(text) {
   text = (text ?? $('#input').value).trim();

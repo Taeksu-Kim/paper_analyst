@@ -430,9 +430,18 @@ with sync_playwright() as p:
     check("중지 → '중지했습니다' + 입력 다시 열림", not page.is_disabled("#input"))
 
     # 새로고침 후 대화 이어짐
+    page.set_viewport_size({"width": 1440, "height": 520})   # 대화가 넘치게 낮춰서 연다
     page.reload()
     page.wait_for_selector(".msg.user")
     check("새로고침: 대화 기록 복원", page.locator(".msg.user").count() == 2 and "중지했습니다" in page.inner_text("#msgs"))
+    page.wait_for_timeout(500)
+    pos = page.evaluate("""() => { const w = document.querySelector('#msgs-wrap'), u = [...document.querySelectorAll('.msg.user')].pop();
+      return {over: w.scrollHeight > w.clientHeight + 4, top: Math.round(u.getBoundingClientRect().top - w.getBoundingClientRect().top),
+              bottom: w.scrollHeight - w.scrollTop - w.clientHeight}; }""")
+    # 마지막 질문이 위쪽에 보여야 한다 (답이 짧아 끝까지 내려간 경우도 질문은 보임)
+    check("대화 열기: 마지막 질문부터 보임 (맨 아래 잘린 문장부터 X)", pos["over"] and 0 <= pos["top"] <= 24 or (pos["bottom"] == 0 and 0 <= pos["top"] < 200), str(pos))
+    check("대화 열기: 마지막 대화 시각 표시", "마지막 대화" in page.inner_text("#sess"), page.inner_text("#sess"))
+    page.set_viewport_size({"width": 1440, "height": 900})
     sid = json.loads(urllib.request.urlopen(URL + "api/chats").read())[0]["session_id"]
     check("세션 id 저장", sid == "fake-session", str(sid))
 
