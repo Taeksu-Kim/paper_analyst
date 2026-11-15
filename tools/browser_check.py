@@ -33,6 +33,16 @@ for sub in ("lists", "ideas", "library/candidates"):
     if (ROOT / sub).exists():
         shutil.copytree(ROOT / sub, TMP / sub, dirs_exist_ok=True)
 TARGET = "2604.12374"     # notes 없는 논문 — 가짜 세션이 정리한다
+# 발행 초안 하나 (개인 메모 문장을 일부러 한 줄 섞어 경고가 나오는지 본다)
+_pd = TMP / "posts" / "2026-11-16_judge"
+_pd.mkdir(parents=True)
+(_pd / "meta.json").write_text(json.dumps({"title": "판정기는 한 숫자로 고르면 안 된다", "sources": ["2603.28052"], "created": "2026-11-16"},
+                                          ensure_ascii=False))
+(_pd / "linkedin.md").write_text("**LLM 판정기를 정확도 한 숫자로 고르면 안 됩니다.** 실패 유형별로 쪼개 봐야 합니다.\n\n"
+                                 "- 순서 바꿈 강건성은 양쪽 순서 모두 정답일 때만\n- 누락형 오류는 따로 잰다\n\n"
+                                 "이 줄은 비공개 메모에서 옮겨 온 문장이라 경고가 떠야 합니다\n\n출처: https://arxiv.org/abs/2610.09229\n#LLM #평가")
+(_pd / "blog.md").write_text("# 판정기 고르기\n\n## 논문이 보인 것\n\n| 조건 | 결과 |\n|---|---|\n| 순서 | 강건성 0.87 |\n")
+(TMP / "library/papers/2603.28052/notes.private.md").write_text("# 개인\n- 이 줄은 비공개 메모에서 옮겨 온 문장이라 경고가 떠야 합니다 (원문)\n")
 N_NOTED = sum(1 for d in (TMP / "library" / "papers").iterdir() if (d / "notes.md").exists())
 N_ALL = sum(1 for d in (TMP / "library" / "papers").iterdir())
 assert not (TMP / "library" / "papers" / TARGET / "notes.md").exists()
@@ -249,6 +259,27 @@ with sync_playwright() as p:
     page.reload()
     page.wait_for_selector("button.concl")
     check("새로고침 후 비교 목록 유지 (브라우저 저장)", page.inner_text("#cmp-n") == "1")
+
+    # 발행: 초안 보기·점검 경고·복사
+    page.click("#tab-pub")
+    page.wait_for_selector(".pub-body")
+    check("발행: 초안 목록 + LinkedIn 미리보기", "판정기는 한 숫자로" in page.inner_text(".pub-head") and page.is_visible(".preview-plain"))
+    check("발행: 개인 메모 겹침 경고", "개인 메모" in page.inner_text(".warn") and "1건" in page.inner_text(".warn"), page.inner_text(".warn")[:120] if page.locator(".warn").count() else "경고 없음")
+    check("발행: '더 보기' 경계 표시", page.locator(".preview-plain .fold").count() == 1)
+    check("발행: 기호 걷어낸 글자 (** 없음, • 목록)", "**" not in page.inner_text(".preview-plain") and "•" in page.inner_text(".preview-plain"))
+    page.screenshot(path=str(TMP / "shot_1440_pub.png"))
+    page.click("button[data-copy='linkedin']")
+    page.wait_for_function("document.querySelector('#toast').innerText.includes('복사')")
+    check("발행: 복사 알림", "복사했습니다" in page.inner_text("#toast"), page.inner_text("#toast"))
+    page.click("button[data-ptab='blog']")
+    page.wait_for_selector(".pub-body .md table")
+    page.click("button[data-ptab='tistory']")
+    page.wait_for_selector("pre.preview-src")
+    check("발행: 티스토리 HTML 원본 (표 포함)", "<table>" in page.inner_text("pre.preview-src"))
+    basics(page, "1440 발행")
+    page.click("button[data-paper='2603.28052']") if page.locator(".pub-body button[data-paper='2603.28052']").count() else None
+    page.wait_for_selector("article h1")
+    check("재료 링크 → 논문 화면 + 글 초안 버튼", page.locator("button[data-ask*='paper-post']").count() == 1)
 
     # 대화: 새 대화 메뉴 (로컬 잠김)
     page.click(f"button[data-paper='{TARGET}']")

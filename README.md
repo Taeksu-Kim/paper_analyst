@@ -26,6 +26,7 @@ claude                                 # Claude Code 설치·로그인 (스킬�
 | 서재 (왼쪽) | 논문을 상태별로 (읽을 것 · 정리됨 · 적용함 · 받음 · 보류), 결론 한 줄 미리보기, 검색, **태그로 거르기**. 목록·아이디어 문서 |
 | 논문 (가운데) | 결론 블록 → **태그**(관심 주제 제안 + 직접 입력) → **연결**(후속·반박·같은 방향·관련, notes 에 나온 서재 논문을 제안) → **내 메모**(`memo.private.md`, git 제외) → notes 전문 → 개인 메모. 상태 바꾸기, "Claude 에게 정리 시키기", "비교에 담기" |
 | 비교 (탭) | 담은 논문들의 결론 블록을 항목별(판정 · 가져갈 것 · 믿어도 되는 결과 · 해석에 주의할 결과 · 읽는다면)로 나란히 |
+| 발행 (탭) | `paper-post` 스킬이 쓴 초안(`posts/`, git 제외)을 LinkedIn 글자 / 블로그 마크다운 / 티스토리 HTML 로 보고 복사. 개인 메모와 겹치는 줄·LinkedIn 길이를 경고 (게시는 직접) |
 | 후보함 (탭) | discover 결과. 신호 통과 / 미판정 전체 / 판정함, 초록 펼치기, 읽기·보류·제외 (읽기 → 서재 '읽을 것') |
 | 대화 (오른쪽) | 세션 2종 중 대화마다 하나. 보고 있는 논문을 함께 보낸다. 도구 실행이 줄로 보이고 중지할 수 있다 |
 
@@ -33,10 +34,11 @@ claude                                 # Claude Code 설치·로그인 (스킬�
 - **Claude Code** — 서버가 이 폴더에서 `claude -p --output-format stream-json`(첫 턴 `--session-id`, 이후 `--resume`)을 실행한다.
   스킬·CLAUDE.md 가 그대로 적용되고, 결과 파일이 생기면 서재가 바로 갱신된다. **대화 내용이 Anthropic 으로 전송된다.**
   권한은 허용 목록만 (`paper_analyst/chat.py` `ALLOWED`): 도구 실행(`python -m paper_analyst.*`), 읽기·검색, 웹 검색,
-  `library/`·`lists/`·`ideas/`·`profiles/` 쓰기. 그 밖은 거부되고 화면에 "거부" 로 보인다 (화면에서 승인하는 창구는 없다).
+  `library/`·`lists/`·`ideas/`·`profiles/`·`posts/` 쓰기. 그 밖은 거부되고 화면에 "거부" 로 보인다 (화면에서 승인하는 창구는 없다).
 - **로컬 LLM** — vLLM(OpenAI 호환, 기본 `http://<호스트 IP>:8002/v1`, `PAPER_LLM_URL` 로 변경)의 Qwen. 서재 조회·notes 읽기·제목→id·
   후보 보기·받기 도구만 쓴다 (정리는 하지 않는다). 서버가 꺼져 있으면 선택지가 잠기고 켜는 법이 보인다.
 - 대화·실행 기록·후보 판정·태그·연결은 `data/paper_analyst.db` (SQLite, git 제외) — 서버를 다시 켜도 같은 대화를 이어간다.
+- **자동 게시는 하지 않는다.** LinkedIn 은 개발자 앱 등록·OAuth 가 필요하고, 티스토리 Open API 는 종료된 것으로 안다 (둘 다 확인 안 함) → 복사해서 붙여 넣는다.
 
 ## import (엔진)
 
@@ -51,6 +53,7 @@ library.scan_papers(ROOT)                               # 서재 (파일 기준)
 
 ## Claude Code 스킬 (터미널)
 - "10월에 주목받은 LLM 에이전트 논문 찾아줘" → **paper-find** / "2603.28052 정리해줘" → **paper-read** / "세팅해줘" → **paper-setup**
+  / "이걸로 링크드인 글 써줘" → **paper-post** (초안만, 게시는 직접. `python -m paper_analyst.post check posts/<이름>` 으로 점검)
 - 원문(PDF·HTML·변환 md)은 저장소에 없다 — `fetch` 로 각자 받는다. `notes.md` 는 논문 정리이고 `*.private.md` 는 git 에서 제외된다.
 
 ## 폴더
@@ -61,7 +64,8 @@ paper_analyst/
 ├── .claude/skills/
 │   ├── paper-setup/SKILL.md # 프로필 만들기: 인터뷰 → 초안 → 예시 논문으로 시험(--check) → 보정 → 지정
 │   ├── paper-find/SKILL.md  # 읽을 논문 고르기 (discover → 초록 → 프로필 기준 판정 → lists/), 붙여넣은 목록은 resolve
-│   └── paper-read/SKILL.md  # 논문 읽고 notes.md 정리 (받기 → 외부 신호 → 절 단위 읽기 → 웹 검색 1회 → 대조 → 작성)
+│   ├── paper-read/SKILL.md  # 논문 읽고 notes.md 정리 (받기 → 외부 신호 → 절 단위 읽기 → 웹 검색 1회 → 대조 → 작성)
+│   └── paper-post/SKILL.md  # notes·ideas → LinkedIn·블로그 초안 (posts/, 개인 메모 겹침 점검)
 ├── paper_analyst/           # 패키지 (import · python -m paper_analyst.<도구> · serve)
 │   ├── profile.py           # 현재 프로필 찾기·요약·지정 (--use)
 │   ├── discover.py          # 후보 찾기: HF·HN·S2 수집 → 기간·주제·신호 필터 (--check: 예시 논문 시험)
@@ -71,13 +75,14 @@ paper_analyst/
 │   ├── library.py           # 서재 읽기 (파일 → 목록·결론·HTML)
 │   ├── store.py · service.py      # 상태(SQLite) · 서비스 (화면 API 가 부르는 유일한 층)
 │   ├── chat.py              # 대화 세션 2종 (Claude Code · 로컬 LLM)
+│   ├── post.py              # 발행 초안 읽기·점검 (개인 메모 겹침·길이)
 │   └── app.py · __main__.py · static/index.html   # 제품 API · serve · 화면
 ├── profiles/                # nlp.toml (예시) · active (git 제외) · *.private.md (git 제외)
 ├── lists/ · ideas/          # 읽을 목록 · 논문에서 나온 논의·설계안
 ├── docs/SOURCES.md          # 어느 소스를 언제 쓰나 + 측정 근거
 ├── tests/test_api.py        # 제품 API 진입점 테스트 (모델·네트워크만 가짜)
 ├── tools/browser_check.py   # 실제 브라우저 점검 (실제 서재 복사본 + 가짜 세션)
-├── data/                    # (git 제외) 화면 상태 DB
+├── data/ · posts/           # (git 제외) 화면 상태 DB · 발행 초안
 └── library/
     ├── papers/<arxiv_id>/   # meta.json · notes.md · (git 제외) paper.pdf · paper.html · parsed/ · external.json · notes.private.md
     └── candidates/          # (git 제외) discover 결과 <날짜>_<프로필>_<from>_<to>.jsonl

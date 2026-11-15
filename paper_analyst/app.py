@@ -112,6 +112,14 @@ def create_app(root: Path, *, backends: dict[str, ChatBackend] | None = None, db
     def delete_link(lid: int):
         return guard(svc.delete_link, lid)
 
+    @app.get("/api/posts")
+    def posts():
+        return svc.posts()
+
+    @app.get("/api/posts/{slug}")
+    def post(slug: str):
+        return guard(svc.post, slug)
+
     @app.get("/api/compare")
     def compare(ids: str):
         return guard(svc.compare, [i for i in ids.split(",") if i])

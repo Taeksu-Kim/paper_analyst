@@ -12,6 +12,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from paper_analyst import library as L
+from paper_analyst import post as PO
 from paper_analyst import resolve as R
 from paper_analyst.chat import ChatBackend, ChatCtx, Tool
 from paper_analyst.store import Store
@@ -99,6 +100,16 @@ class Service:
                 "private_html": L.to_html(f["private"]) if f["private"] else "",
                 "memo": f["memo"], "can_memo": (self.root / "library" / "papers" / aid / "meta.json").is_file(),
                 "links": links, "suggest_links": suggest_links, "suggest_tags": suggest_tags}
+
+    # ── 발행 초안 ───────────────────────────────────────
+    def posts(self) -> list[dict]:
+        return PO.list_posts(self.root)
+
+    def post(self, slug: str) -> dict:
+        try:
+            return PO.read_post(self.root, slug)
+        except FileNotFoundError as e:
+            raise NotFound(slug) from e
 
     # ── 태그·연결·메모·비교 ─────────────────────────────
     def topics(self) -> list[str]:

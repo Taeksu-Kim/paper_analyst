@@ -212,3 +212,29 @@ def test_library_v2_tags_links_memo_compare(env):
     assert [x["id"] for x in cmp] == ["2603.28052", "2604.15597"]
     assert [x["label"] for x in cmp[0]["parts"]] == ["가져갈 것", "믿어도 되는 결과"] and cmp[1]["parts"] == []
     assert c.get("/api/compare?ids=2603.28052,9999.99999").status_code == 404
+
+
+def test_posts(env):
+    root, _, _, mk = env
+    c = mk()
+    assert c.get("/api/posts").json() == []
+    d = root / "posts" / "2026-11-16_judge"
+    d.mkdir(parents=True)
+    (d / "meta.json").write_text(json.dumps({"title": "판정기 고르기", "sources": ["2603.28052"], "created": "2026-11-16"}))
+    (d / "linkedin.md").write_text("**판정기는 정확도 한 숫자로 고르면 안 됩니다.**\n\n- 순서 바꿈 강건성\n- 누락 탐지\n\n내 작업 연결 관련 문장입니다 여기서부터\n#LLM")
+    (d / "blog.md").write_text("# 판정기\n\n| a | b |\n|---|---|\n| 1 | 2 |\n")
+    (root / "library/papers/2603.28052/notes.private.md").write_text("# 개인\n- 내 작업 연결 관련 문장입니다 여기서부터 비밀\n")
+    lst = c.get("/api/posts").json()
+    assert [x["slug"] for x in lst] == ["2026-11-16_judge"] and lst[0]["has"] == ["linkedin.md", "blog.md"]
+    p = c.get("/api/posts/2026-11-16_judge").json()
+    li = p["linkedin"]
+    assert li["plain"].startswith("판정기는 정확도") and "• 순서 바꿈" in li["plain"] and "**" not in li["plain"]
+    assert li["plain"].rstrip().endswith("#LLM")                                            # 해시태그는 제목이 아님
+    assert [h["line"] for h in li["check"]["private_hits"]] == [6]                       # 개인 메모 문장 겹침
+    assert li["check"]["private_hits"][0]["source"].endswith("notes.private.md")
+    assert not li["check"]["over_limit"] and li["check"]["chars"] < 200
+    assert "<table>" in p["blog"]["html"] and p["blog"]["check"]["private_hits"] == []
+    (d / "linkedin.md").write_text("가" * 3100)
+    assert c.get("/api/posts/2026-11-16_judge").json()["linkedin"]["check"]["over_limit"] is True
+    assert c.get("/api/posts/없음").status_code == 404
+    assert c.get("/api/posts/..%2F..%2Fetc").status_code == 404
