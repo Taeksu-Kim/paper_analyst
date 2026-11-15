@@ -228,6 +228,9 @@ table.cmp .empty-cell { color: var(--text-3); }
 .sess:empty { display: none; }
 .sess b { color: var(--text); }
 .sess .when { white-space: nowrap; }
+.inline-confirm { border: 1px solid var(--line-strong); border-radius: var(--radius-lg); background: var(--panel-2); padding: 10px 14px; margin: -6px 0 14px; font-size: var(--fs-label); }
+.inline-confirm p { margin: 0 0 8px; line-height: 1.6; }
+.inline-confirm .row { display: flex; gap: 6px; }
 /* 건너뛰기: Tab 을 처음 누를 때만 보인다 */
 .skip { position: absolute; left: 8px; top: -60px; z-index: 50; background: var(--panel); color: var(--accent); border: 2px solid var(--accent);
   border-radius: var(--radius); padding: 8px 12px; font-weight: 600; text-decoration: none; }
@@ -471,7 +474,7 @@ async function showPaper(id, quiet = false) {
   const stBtns = `<span class="seg" role="group" aria-label="상태">${[['', names[auto]], ['applied', '적용함'], ['hold', '보류']].map(([k, n]) =>
     `<button class="btn" data-st="${k}" aria-pressed="${(manual || '') === k}">${esc(n)}</button>`).join('')}</span>`;
   const ask = p.has_notes
-    ? `<button class="btn" data-ask="이 논문 notes 를 다시 확인하고, 빠진 외부 평가가 있으면 보강해줘">다시 정리 시키기</button>`
+    ? `<button class="btn" id="reread" aria-expanded="false" aria-controls="reread-box">다시 정리 시키기</button>`
     : `<button class="btn primary" data-ask="이 논문 paper-read 로 정리해줘">Claude 에게 정리 시키기</button>`;
   p.authors = (p.authors || []).filter(a => /[A-Za-z가-힣]{2}/.test(a));
   const authors = p.authors && p.authors.length ? ' · ' + esc(p.authors.slice(0, 3).join(', ')) + (p.authors.length > 3 ? ` 외 ${p.authors.length - 3}명` : '') : '';
@@ -484,6 +487,11 @@ async function showPaper(id, quiet = false) {
       ${p.has_notes ? `<button class="btn" data-cmp="${esc(p.id)}" aria-pressed="${inCmp}">${inCmp ? '비교에서 빼기' : '비교에 담기'}</button>
         <button class="btn" data-ask="이 논문으로 paper-post 글 초안 만들어줘 (LinkedIn·블로그)">글 초안 만들기</button>` : ''}
     </div>
+    <div class="inline-confirm" id="reread-box" role="group" aria-label="다시 정리 확인" hidden>
+      <p>기존 정리(notes)를 Claude 가 다시 확인하고, 빠진 외부 평가가 있으면 보강합니다. 내용이 고쳐질 수 있고,
+      Claude 세션이 보통 몇 분 돌며 사용량이 나갑니다.</p>
+      <div class="row"><button class="btn primary" data-ask="이 논문 notes 를 다시 확인하고, 빠진 외부 평가가 있으면 보강해줘" id="reread-go">시작</button>
+      <button class="btn quiet" id="reread-cancel">취소</button></div></div>
     ${p.conclusion ? `<div class="concl"><span class="k">결론</span><span class="v">${esc(p.conclusion)}</span></div>` : ''}
     ${paperExtras(p)}
     ${p.notes_html ? `<div class="md" id="notes">${p.notes_html}</div>`
@@ -922,7 +930,7 @@ document.addEventListener('click', async ev => {
       await loadLib(); showPaper(S.sel.id, true); toast(t.dataset.st ? `${t.textContent}(으)로 표시했습니다` : '파일 기준 상태로 되돌렸습니다'); }
     catch (e) { toast(e.message); } return;
   }
-  if (t.dataset.ask) return send(t.dataset.ask);
+  if (t.dataset.ask) { if (t.id === 'reread-go') $('#reread-box').hidden = true; return send(t.dataset.ask); }
   if (t.dataset.cv) { S.candView = t.dataset.cv; return loadCand(); }
   if (t.dataset.abs) {
     const id = t.dataset.abs; S.candSel = id;
@@ -952,6 +960,11 @@ document.addEventListener('click', async ev => {
     case 'tab-lib': return setView('lib');
     case 'tab-cand': return setView('cand');
     case 'tab-cmp': return setView('cmp');
+    case 'reread': case 'reread-cancel': {
+      const box = $('#reread-box'), open = t.id === 'reread' && box.hidden;
+      box.hidden = !open; $('#reread').setAttribute('aria-expanded', open);
+      (open ? $('#reread-go') : $('#reread')).focus(); return;
+    }
     case 'tab-pub': return setView('pub');
     case 'li-publish': {
       const d = S.postData;
