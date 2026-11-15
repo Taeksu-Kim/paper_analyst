@@ -88,11 +88,23 @@ a { color: var(--accent); }
 .bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 14px 0 18px; }
 .bar .lbl { font-size: var(--fs-cap); color: var(--text-3); margin-right: 2px; }
 .sep { width: 1px; height: 20px; background: var(--line); margin: 0 6px; }
+.seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: var(--radius); overflow: hidden; }
+.seg .btn { border: 0; border-radius: 0; border-left: 1px solid var(--line-strong); }
+.seg .btn:first-child { border-left: 0; }
+.seg .btn[aria-pressed="true"] { box-shadow: none; }
+.meta a { color: var(--accent); padding: 4px 0; }   /* 글 줄 안 링크지만 누를 자리는 넓게 */
 .concl { background: var(--concl-bg); border: 1px solid var(--concl-line); border-radius: var(--radius-lg); padding: 12px 16px; margin: 0 0 14px; display: block; width: 100%; text-align: left; }
 button.concl { cursor: pointer; }
 button.concl:hover { border-color: var(--concl-label); }
 .concl .k { font-size: var(--fs-cap); font-weight: 700; color: var(--concl-label); display: block; margin-bottom: 2px; }
 .concl .v { margin: 0; font-weight: 600; line-height: 1.55; display: block; }
+/* 홈 목록: 굵은 벽이 되지 않게 보통 굵기 + 3줄까지 */
+.concl.card .v { font-weight: 400; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.concl.card .k { font-size: var(--fs-label); color: var(--text); margin-bottom: 4px; }
+.concl.card:hover { border-color: var(--accent); }
+details.src-meta { font-size: var(--fs-cap); color: var(--text-3); margin: 0 0 8px; }
+details.src-meta summary { cursor: pointer; }
+details.src-meta ul { margin: 4px 0 0; }
 .md { line-height: 1.7; }
 .md h1 { font-size: var(--fs-h2); } .md h2 { font-size: var(--fs-h2); margin-top: 28px; padding-top: 12px; border-top: 1px solid var(--line); }
 .md h3 { font-size: var(--fs-h3); margin-top: 20px; }
@@ -186,13 +198,18 @@ table.cmp .empty-cell { color: var(--text-3); }
 /* 후보함 */
 .cand-head { position: sticky; top: 0; background: var(--panel); border-bottom: 1px solid var(--line); padding: 12px 24px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; z-index: 1; }
 .cand-head .hint { color: var(--text-3); font-size: var(--fs-cap); margin-left: auto; }
-.cand { border-bottom: 1px solid var(--line); padding: 12px 24px; }
+.cand { border-bottom: 1px solid var(--line); padding: 12px 24px; border-left: 3px solid transparent; }
+.cand.sel { background: var(--panel-2); border-left-color: var(--accent); }
 .cand .row { display: flex; gap: 12px; align-items: flex-start; }
 .cand .info { flex: 1; min-width: 0; }
-.cand button.t { border: 0; background: none; padding: 0; text-align: left; cursor: pointer; font-weight: 600; line-height: 1.4; }
+.cand button.t { border: 0; background: none; padding: 2px 0; min-height: 28px; text-align: left; cursor: pointer; font-weight: 600; line-height: 1.4; }
+.cand button.t::before { content: '▸ '; color: var(--text-3); }
+.cand button.t[aria-expanded="true"]::before { content: '▾ '; }
 .cand button.t:hover { color: var(--accent); }
 .sig { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; font-size: var(--fs-cap); color: var(--text-2); font-variant-numeric: tabular-nums; }
 .sig .hit { color: var(--accent); font-weight: 700; }
+.cand-head .keys { font-size: var(--fs-cap); color: var(--text-3); width: 100%; }
+.cand-head .keys kbd { font-family: var(--mono); border: 1px solid var(--line-strong); border-radius: 3px; padding: 0 4px; }
 .cand .acts { display: flex; gap: 4px; flex-shrink: 0; align-items: center; }
 .cand .abstract { margin-top: 8px; font-size: var(--fs-label); line-height: 1.65; }
 
@@ -420,9 +437,9 @@ async function showPaper(id, quiet = false) {
   const inCmp = S.cmp.includes(p.id);
   const manual = ['applied', 'hold'].includes(p.status) ? p.status : null;
   const auto = p.has_notes ? 'noted' : (p.status === 'to_read' ? 'to_read' : 'fetched');
-  const stBtns = [['applied', '적용함'], ['hold', '보류']].map(([k, n]) =>
-    `<button class="btn" data-st="${k}" aria-pressed="${manual === k}">${n}</button>`).join('')
-    + (manual ? `<button class="btn quiet" data-st="">되돌리기</button>` : '');
+  // 상태는 한 묶음: 파일 기준(자동) | 적용함 | 보류 — 자동을 누르면 수동 표시를 되돌린다
+  const stBtns = `<span class="seg" role="group" aria-label="상태">${[['', names[auto]], ['applied', '적용함'], ['hold', '보류']].map(([k, n]) =>
+    `<button class="btn" data-st="${k}" aria-pressed="${(manual || '') === k}">${esc(n)}</button>`).join('')}</span>`;
   const ask = p.has_notes
     ? `<button class="btn" data-ask="이 논문 notes 를 다시 확인하고, 빠진 외부 평가가 있으면 보강해줘">다시 정리 시키기</button>`
     : `<button class="btn primary" data-ask="이 논문 paper-read 로 정리해줘">Claude 에게 정리 시키기</button>`;
@@ -430,13 +447,12 @@ async function showPaper(id, quiet = false) {
   const authors = p.authors && p.authors.length ? ' · ' + esc(p.authors.slice(0, 3).join(', ')) + (p.authors.length > 3 ? ` 외 ${p.authors.length - 3}명` : '') : '';
   $('#main').innerHTML = `<article class="doc">
     <h1 class="title">${esc(p.title)}</h1>
-    <div class="meta">arXiv ${esc(p.id)}${p.published ? ' · 발표 ' + esc(fmtDate(p.published)) : ''}${p.category ? ' · ' + esc(p.category) : ''}${authors}</div>
+    <div class="meta"><a href="${esc(p.abs_url)}" target="_blank" rel="noopener">arXiv ${esc(p.id)}</a>${p.published ? ' · 발표 ' + esc(fmtDate(p.published)) : ''}${p.category ? ' · ' + esc(p.category) : ''}${authors}</div>
     <div class="bar">
-      <span class="lbl">상태</span><span class="chip">${esc(names[manual || auto])}</span>${stBtns}
+      <span class="lbl">상태</span>${stBtns}
       <span class="sep"></span>${ask}
       ${p.has_notes ? `<button class="btn" data-cmp="${esc(p.id)}" aria-pressed="${inCmp}">${inCmp ? '비교에서 빼기' : '비교에 담기'}</button>
         <button class="btn" data-ask="이 논문으로 paper-post 글 초안 만들어줘 (LinkedIn·블로그)">글 초안 만들기</button>` : ''}
-      <a class="btn quiet" href="${esc(p.abs_url)}" target="_blank" rel="noopener">arXiv 열기</a>
     </div>
     ${p.conclusion ? `<div class="concl"><span class="k">결론</span><span class="v">${esc(p.conclusion)}</span></div>` : ''}
     ${paperExtras(p)}
@@ -611,7 +627,14 @@ function dedupe(md, p) {   // 위에 이미 보인 제목·결론 문장은 note
   const norm = s => (s || '').replace(/\s+/g, ' ').trim();
   const h1 = md.querySelector(':scope > h1:first-child');
   if (h1 && norm(h1.textContent) === norm(p.title)) h1.remove();
-  const h2 = [...md.querySelectorAll(':scope > h2')].find(h => norm(h.textContent).startsWith('결론'));
+  // 맨 앞(첫 h2 전) 목록은 출처·읽은 범위 같은 기술 정보 — 작게 접어 둔다
+  const lead = md.querySelector(':scope > ul:first-child');
+  if (lead) {
+    const d = document.createElement('details'); d.className = 'src-meta';
+    d.innerHTML = '<summary>출처·읽은 범위·정리 시각</summary>'; lead.replaceWith(d); d.appendChild(lead);
+  }
+  // 결론 문장은 위 결론 상자에 이미 있다 — 새 양식 '결론', 예전 양식 '한 줄 요약' 둘 다
+  const h2 = [...md.querySelectorAll(':scope > h2')].find(h => /^(결론|한 줄 요약)/.test(norm(h.textContent)));
   const first = h2 && h2.nextElementSibling;
   if (first && first.tagName === 'P' && norm(first.textContent) === norm(p.conclusion)) {
     first.remove();
@@ -633,41 +656,60 @@ function welcome() {
   const noted = S.lib.papers.filter(p => p.conclusion).sort((a, b) => b.noted_at - a.noted_at);
   $('#main').innerHTML = `<div class="doc"><h1 class="title">최근 정리된 결론</h1>
     <p class="meta" style="margin-bottom:16px">왼쪽에서 논문을 고르거나, 오른쪽 대화창에서 Claude 에게 찾기·정리를 시키세요.</p>
-    ${noted.slice(0, 10).map(p => `<button class="concl" data-paper="${esc(p.id)}"><span class="k">${esc(p.title)}</span><span class="v">${esc(p.conclusion)}</span></button>`).join('')
+    ${noted.slice(0, 10).map(p => `<button class="concl card" data-paper="${esc(p.id)}"><span class="k">${esc(p.title)}</span><span class="v">${esc(p.conclusion)}</span></button>`).join('')
       || '<p class="abstract">아직 정리된 논문이 없습니다.</p>'}</div>`;
 }
 
 /* ── 후보함 ───────────────────────────────── */
+const DEC_NAMES = { read: '읽을 것', hold: '보류', exclude: '제외' };
+function candMove(id) {
+  S.candSel = id; S.candIdx = S.cand.items.findIndex(x => x.id === id); renderCand();
+  document.querySelector(`.cand[data-cand="${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'nearest' });
+}
+document.addEventListener('keydown', e => {   // 후보함 단축키 — 입력 중이거나 조합키면 무시
+  if (S.view !== 'cand' || S.candView === 'decided' || !S.cand || !S.cand.items.length) return;
+  if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.target.closest('input,textarea,select,[contenteditable]')) return;
+  const items = S.cand.items, i = Math.max(0, items.findIndex(x => x.id === S.candSel));
+  const k = e.key.toLowerCase();
+  if (k === 'j' || k === 'k') { e.preventDefault(); return candMove(items[Math.min(items.length - 1, Math.max(0, i + (k === 'j' ? 1 : -1)))].id); }
+  const id = items[i].id;
+  if (k === 'o') { e.preventDefault(); return document.querySelector(`.cand[data-cand="${CSS.escape(id)}"] button.t`)?.click(); }
+  const dec = { r: 'read', h: 'hold', x: 'exclude' }[k];
+  if (dec) { e.preventDefault(); S.candIdx = i; document.querySelector(`.cand[data-cand="${CSS.escape(id)}"] button[data-dec="${dec}"]`)?.click(); }
+});
 async function loadCand() {
   try { S.cand = await api(`/api/candidates?view=${S.candView}`); }
   catch (e) { if (S.view === 'cand') $('#main').innerHTML = `<div class="empty"><h2>후보를 불러오지 못했습니다</h2><p>${esc(e.message)}</p></div>`; return; }
   $('#cand-n').textContent = S.cand.counts.signal || '';
+  const ids = S.cand.items.map(x => x.id);
+  if (!ids.includes(S.candSel)) S.candSel = ids[Math.min(S.candIdx || 0, ids.length - 1)] || null;
   if (S.view === 'cand') renderCand();
 }
 function renderCand() {
-  const c = S.cand, dn = { read: '읽기', hold: '보류', exclude: '제외' };
+  const c = S.cand, dn = DEC_NAMES;
   const head = `<div class="cand-head">
     ${[['signal', '신호 통과', c.counts.signal], ['all', '미판정 전체', c.counts.all], ['decided', '판정함', c.counts.decided]]
       .map(([k, n, v]) => `<button class="btn" data-cv="${k}" aria-pressed="${S.candView === k}">${n} ${fmtN(v)}</button>`).join('')}
-    <span class="hint">신호는 합산하지 않습니다 · 기준을 하나라도 넘으면 “신호 통과”</span></div>`;
+    <span class="hint">신호는 합산하지 않습니다 · 기준을 하나라도 넘으면 “신호 통과”</span>
+    ${S.candView !== 'decided' && c.items.length ? '<span class="keys">단축키 <kbd>j</kbd> <kbd>k</kbd> 이동 · <kbd>o</kbd> 초록 · <kbd>r</kbd> 읽을 것에 · <kbd>h</kbd> 보류 · <kbd>x</kbd> 제외</span>' : ''}</div>`;
   if (!c.items.length) {
     $('#main').innerHTML = head + `<div class="empty"><h2>${S.candView === 'decided' ? '판정한 후보가 없습니다' : '판정할 후보가 없습니다'}</h2>
       <p>대화창에서 <span class="ex">2026년 10~11월 후보 찾아줘</span>처럼 시키면 Claude 가 후보를 모아 여기에 넣습니다.</p></div>`;
     return;
   }
   $('#main').innerHTML = head + c.items.map(x => {
-    const sig = [['stars', x.stars, '★'], ['hn', x.hn, 'HN'], ['cit', x.cit, '인용']]
-      .filter(([, v]) => v).map(([k, v, l]) => `<span class="${x.signals.includes(k) ? 'hit' : ''}">${l} ${fmtN(v)}</span>`);
-    if (x.upvotes) sig.push(`<span>up ${fmtN(x.upvotes)}</span>`);
+    const sig = [['stars', x.stars, 'GitHub ★', '코드 저장소 GitHub 스타'], ['hn', x.hn, 'HN', 'Hacker News 점수'], ['cit', x.cit, '인용', 'Semantic Scholar 인용 수']]
+      .filter(([, v]) => v).map(([k, v, l, t]) => `<span class="${x.signals.includes(k) ? 'hit' : ''}" title="${t}${x.signals.includes(k) ? ' — 기준 넘음' : ''}">${l} ${fmtN(v)}</span>`);
+    if (x.upvotes) sig.push(`<span title="Hugging Face Daily Papers 추천 수">HF 추천 ${fmtN(x.upvotes)}</span>`);
     const open = S.openAbs.has(x.id);
-    return `<div class="cand"><div class="row"><div class="info">
+    return `<div class="cand${S.candView !== 'decided' && x.id === S.candSel ? ' sel' : ''}" data-cand="${esc(x.id)}"><div class="row"><div class="info">
       <button class="t" data-abs="${esc(x.id)}" aria-expanded="${open}">${esc(x.title || x.id)}</button>
-      <div class="sig"><span>${esc(x.id)}</span>${sig.join('')}<span>출처 ${esc(x.src.join(', '))}</span></div>
+      <div class="sig"><span>${esc(x.id)}</span>${sig.join('')}<span title="후보를 찾은 곳 (hf: Hugging Face, hn: Hacker News, s2: Semantic Scholar, kw: 관심 키워드)">출처 ${esc(x.src.join(', '))}</span></div>
       ${open ? `<div class="abstract">${S.abs[x.id] === undefined ? '초록 가져오는 중…' : esc(S.abs[x.id] || '초록을 가져오지 못했습니다 (HF·arXiv 응답 없음).')}</div>` : ''}
       </div><div class="acts">
       ${S.candView === 'decided'
         ? `<span class="chip">${dn[x.decision]}</span><button class="btn quiet" data-dec="" data-id="${esc(x.id)}">되돌리기</button>`
-        : `<button class="btn primary" data-dec="read" data-id="${esc(x.id)}">읽기</button><button class="btn" data-dec="hold" data-id="${esc(x.id)}">보류</button><button class="btn quiet" data-dec="exclude" data-id="${esc(x.id)}">제외</button>`}
+        : `<button class="btn${x.id === S.candSel ? ' primary' : ''}" data-dec="read" data-id="${esc(x.id)}">읽을 것에</button><button class="btn" data-dec="hold" data-id="${esc(x.id)}">보류</button><button class="btn quiet" data-dec="exclude" data-id="${esc(x.id)}">제외</button>`}
       </div></div></div>`;
   }).join('');
 }
@@ -759,7 +801,7 @@ function onEvent(e) {
     S.running = false;
     const msg = { canceled: '중지했습니다', interrupted: d.message || '서버가 다시 켜져 끊겼습니다', failed: '답하지 못하고 끝났습니다' }[d.status];
     if (msg) add(`<div class="endline bad">${esc(msg)}</div>`);
-    else if (d.cost) add(`<div class="endline">비용 $${Number(d.cost).toFixed(3)}</div>`);
+    else if (d.cost) add(`<div class="endline" title="Claude 구독(Pro/Max)으로 로그인했으면 추가 요금 없이 사용량 한도에서만 차감됩니다. API 키로 쓰면 이 금액이 청구됩니다.">API 요금 환산 약 $${Number(d.cost).toFixed(2)} · 구독이면 사용량만 차감</div>`);
     box.querySelectorAll('.st.run').forEach(s => { s.className = 'st bad'; s.textContent = '끝나지 않음'; });
     renderSess(); loadChats(); loadLib(true); loadCand();
   }
@@ -832,13 +874,13 @@ document.addEventListener('click', async ev => {
   if (t.dataset.uncmp) { S.cmp = S.cmp.filter(x => x !== t.dataset.uncmp); saveCmp(); return renderCompare(); }
   if (t.dataset.st !== undefined) {
     try { await api(`/api/papers/${S.sel.id}/status`, { method: 'PUT', body: { status: t.dataset.st || null } });
-      await loadLib(); showPaper(S.sel.id, true); toast(t.dataset.st ? `${t.textContent}으로 표시했습니다` : '파일 기준 상태로 되돌렸습니다'); }
+      await loadLib(); showPaper(S.sel.id, true); toast(t.dataset.st ? `${t.textContent}(으)로 표시했습니다` : '파일 기준 상태로 되돌렸습니다'); }
     catch (e) { toast(e.message); } return;
   }
   if (t.dataset.ask) return send(t.dataset.ask);
   if (t.dataset.cv) { S.candView = t.dataset.cv; return loadCand(); }
   if (t.dataset.abs) {
-    const id = t.dataset.abs;
+    const id = t.dataset.abs; S.candSel = id;
     if (S.openAbs.has(id)) { S.openAbs.delete(id); return renderCand(); }
     S.openAbs.add(id); renderCand();
     if (S.abs[id] === undefined) { try { S.abs[id] = (await api(`/api/candidates/${id}/abstract`)).abstract; } catch { S.abs[id] = ''; } renderCand(); }
@@ -846,8 +888,9 @@ document.addEventListener('click', async ev => {
   }
   if (t.dataset.dec !== undefined) {
     const id = t.dataset.id, dec = t.dataset.dec || null;
+    if (dec && S.cand) S.candIdx = S.cand.items.findIndex(x => x.id === id);   // 판정 뒤에는 같은 자리(다음 후보)를 고른다
     try { await api(`/api/candidates/${id}/decision`, { method: 'PUT', body: { decision: dec } });
-      toast(dec ? `${{ read: '읽기', hold: '보류', exclude: '제외' }[dec]}로 옮겼습니다` : '되돌렸습니다');
+      toast(dec ? `${DEC_NAMES[dec]}(으)로 옮겼습니다` : '되돌렸습니다');
       await Promise.all([loadCand(), loadLib()]); } catch (e) { toast(e.message); } return;
   }
   if (t.dataset.backend) {
