@@ -72,17 +72,30 @@ def _grams(s: str) -> set[str]:
     return {s[i:i + NGRAM] for i in range(max(0, len(s) - NGRAM + 1))}
 
 
-def private_corpus(root: Path) -> dict[str, set[str]]:
+SKIP_DIRS = {".git", "node_modules", ".venv", "venv", "__pycache__", ".cache"}
+# 개인 흔적 (개인 단어 목록이 아니라 모양으로): 로컬 절대 경로 · 이메일
+TRACES = [("로컬 경로", re.compile(r"(?<![\w/])(/mnt/[a-z]/|/home/[\w.-]+|/Users/[\w.-]+|[A-Za-z]:\\(?:Users|workspace))", re.I)),
+          ("이메일", re.compile(r"[\w.+-]+@[\w-]+\.[\w.]+"))]
+
+
+def private_corpus(root: Path, project_roots: tuple[Path, ...] = ()) -> dict[str, set[str]]:
+    """이 저장소의 *.private.md + (다른 프로젝트 글이면) 그 프로젝트의 *.private.md 전부."""
     out = {}
     for d in PRIVATE_DIRS:
         for f in (root / d).rglob("*.private.md") if (root / d).is_dir() else []:
             out[str(f.relative_to(root))] = _grams(f.read_text(encoding="utf-8"))
+    for pr in project_roots:
+        for f in pr.rglob("*.private.md") if pr.is_dir() else []:
+            if not SKIP_DIRS & set(f.relative_to(pr).parts):
+                out[f"{pr.name}/{f.relative_to(pr)}"] = _grams(f.read_text(encoding="utf-8", errors="replace"))
     return out
 
 
-def check(text: str, root: Path, kind: str) -> dict:
-    corpus = private_corpus(root)
+def check(text: str, root: Path, kind: str, project_roots: tuple[Path, ...] = ()) -> dict:
+    corpus = private_corpus(root, project_roots)
     hits = []
+    traces = [{"line": i, "kind": k, "text": line.strip()[:160]} for i, line in enumerate(text.split("\n"), 1)
+              for k, rx in TRACES if rx.search(line)]
     for i, line in enumerate(text.split("\n"), 1):
         g = _grams(line)
         if len(g) < 3:      # 너무 짧은 줄 (제목·빈 줄)은 판단 안 함
@@ -92,7 +105,7 @@ def check(text: str, root: Path, kind: str) -> dict:
             if r >= 0.5:
                 hits.append({"line": i, "text": line.strip()[:160], "ratio": round(r, 2), "source": src})
                 break
-    out: dict = {"private_hits": hits, "chars": len(text)}
+    out: dict = {"private_hits": hits, "trace_hits": traces, "chars": len(text)}
     if kind == "linkedin":
         body = plain(text)
         first = next((l for l in body.split("\n") if l.strip()), "")
@@ -109,10 +122,12 @@ def read_post(root: Path, slug: str) -> dict:
     if not p.is_dir():
         raise FileNotFoundError(slug)
     out = {"slug": slug, "published": {}, **{k: v for k, v in _meta(p).items() if k in ("title", "sources", "created", "published")}}
+    meta = _meta(p)
+    roots = tuple(Path(r) for r in ([meta["project_root"]] if meta.get("project_root") else []))   # 다른 프로젝트 소개 글
     li = (p / "linkedin.md").read_text(encoding="utf-8") if (p / "linkedin.md").exists() else ""
     bl = (p / "blog.md").read_text(encoding="utf-8") if (p / "blog.md").exists() else ""
-    out["linkedin"] = {"md": li, "plain": plain(li), "sha": text_sha(plain(li)), "check": check(li, root, "linkedin")} if li else None
-    out["blog"] = {"md": bl, "html": to_html(bl), "check": check(bl, root, "blog")} if bl else None
+    out["linkedin"] = {"md": li, "plain": plain(li), "sha": text_sha(plain(li)), "check": check(li, root, "linkedin", roots)} if li else None
+    out["blog"] = {"md": bl, "html": to_html(bl), "check": check(bl, root, "blog", roots)} if bl else None
     return out
 
 
@@ -161,6 +176,9 @@ def main() -> int:
         for h in ch["private_hits"]:
             bad += 1
             print(f"  ⚠ {h['line']}행: 개인 메모와 {int(h['ratio'] * 100)}% 겹침 ({h['source']}) — {h['text']}")
+        for h in ch["trace_hits"]:
+            bad += 1
+            print(f"  ⚠ {h['line']}행: {h['kind']} — {h['text']}")
     print("문제 없음" if not bad else f"고칠 것 {bad}건")
     return 1 if bad else 0
 

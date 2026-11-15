@@ -171,8 +171,8 @@ class Service:
             if p.get("published", {}).get("linkedin"):
                 raise Conflict("이미 게시한 글입니다: " + p["published"]["linkedin"].get("url", ""))
             ch = li["check"]
-            if ch["private_hits"] or ch.get("over_limit"):
-                raise Conflict("점검 경고가 남아 있어 게시하지 않습니다 (개인 메모 겹침 또는 길이 초과). 초안을 고친 뒤 다시 하세요.")
+            if ch["private_hits"] or ch.get("trace_hits") or ch.get("over_limit"):
+                raise Conflict("점검 경고가 남아 있어 게시하지 않습니다 (개인 메모 겹침 · 로컬 경로·이메일 · 길이 초과). 초안을 고친 뒤 다시 하세요.")
             if sha != li["sha"]:
                 raise Conflict("화면에 보인 글과 파일 내용이 다릅니다 (그사이 초안이 바뀜). 새로 고친 글을 확인한 뒤 다시 누르세요.")
             tok = self.li_store.token()
