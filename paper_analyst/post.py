@@ -45,6 +45,7 @@ def list_posts(root: Path) -> list[dict]:
         meta = _meta(p)
         out.append({"slug": p.name, "title": meta.get("title") or p.name, "sources": meta.get("sources", []),
                     "created": meta.get("created", ""), "has": [f for f in ("linkedin.md", "blog.md") if (p / f).exists()],
+                    "published": {k: (v or {}).get("at", "") for k, v in (meta.get("published") or {}).items()},
                     "mtime": max((f.stat().st_mtime for f in p.iterdir()), default=0)})
     return out
 
