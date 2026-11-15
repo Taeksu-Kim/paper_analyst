@@ -56,8 +56,9 @@ def with_paper(ctx: ChatCtx, text: str) -> str:
 
 TOOLS = ("fetch", "enrich", "discover", "resolve", "profile", "post")
 # 공통 CLAUDE.md 가 파이썬 절대경로를 쓰라고 해서 Claude 가 그 형태로도 부른다 (실측 2026-11-15) → 두 형태 모두 허용
+# 읽기는 저장소 안만. 경로 없는 "Read" 는 디스크 전체 읽기를 허용한다 (실측 2026-11-15: 저장소 밖 파일 내용이 그대로 나옴)
 ALLOWED = [
-    "Read", "Grep", "Glob", "WebSearch", "WebFetch", "Skill",
+    "Read(./**)", "Grep(./**)", "Glob(./**)", "WebSearch", "WebFetch", "Skill",
     *[f"Bash({py} -m paper_analyst.{t}:*)" for py in ("python", sys.executable) for t in TOOLS],
     "Bash(grep:*)", "Bash(ls:*)", "Bash(wc:*)", "Bash(head:*)",
     "Edit(library/**)", "Edit(lists/**)", "Edit(ideas/**)", "Edit(profiles/**)", "Edit(posts/**)",
@@ -69,6 +70,8 @@ SYSTEM = (
     "셸 명령은 하나씩 실행한다 — `;`·`&&`·`|`·`echo` 를 붙이면 승인이 필요해 거부된다. "
     "허용 목록 밖의 도구는 거부된다 (화면에 승인 창구가 없음) — 거부되면 대신 할 수 있는 방법을 말한다."
 )
+# 명시적 거부 (허용보다 우선): LinkedIn 키·토큰이 있는 공용 설정 폴더
+DENIED = ["Read(~/.config/**)", "Grep(~/.config/**)", "Glob(~/.config/**)", "Bash(cat:*)"]
 WRITES = {"Write", "Edit", "MultiEdit", "NotebookEdit"}
 
 
@@ -155,7 +158,8 @@ class ClaudeBackend:
     def start(self, ctx: ChatCtx, text: str) -> Proc:
         sid = ctx.session_id or str(uuid.uuid4())
         cmd = ["claude", "-p", with_paper(ctx, text), "--output-format", "stream-json", "--verbose",
-               "--strict-mcp-config", "--append-system-prompt", SYSTEM, "--allowedTools", *ALLOWED]
+               "--strict-mcp-config", "--append-system-prompt", SYSTEM, "--allowedTools", *ALLOWED,
+               "--disallowedTools", *DENIED]
         cmd += ["--resume", sid] if ctx.session_id else ["--session-id", sid]
         if self.model:
             cmd += ["--model", self.model]

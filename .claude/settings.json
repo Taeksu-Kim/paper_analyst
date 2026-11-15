@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(~/.config/side-projects/**)",
+      "Edit(~/.config/side-projects/**)",
+      "Bash(*.config/side-projects*)"
+    ]
+  }
+}

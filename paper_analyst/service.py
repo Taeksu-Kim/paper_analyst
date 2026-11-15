@@ -8,10 +8,12 @@ from __future__ import annotations
 import json
 import threading
 import time
+import urllib.parse
 from collections.abc import Callable
 from pathlib import Path
 
 from paper_analyst import library as L
+from paper_analyst import linkedin as LI
 from paper_analyst import post as PO
 from paper_analyst import resolve as R
 from paper_analyst.chat import ChatBackend, ChatCtx, Tool
@@ -36,11 +38,20 @@ class Unavailable(Exception):
     pass
 
 
+class Conflict(Exception):
+    """지금 상태로는 할 수 없음 (점검 경고 남음 · 미리보기와 내용 다름 · 이미 게시됨)."""
+
+
 class Service:
     def __init__(self, root: Path, db_path: Path, backends: dict[str, ChatBackend] | None = None,
                  abstract_fn: Callable[[str], str] | None = None,
-                 fetch_fn: Callable[[str], dict] | None = None, topics: list[str] | None = None) -> None:
+                 fetch_fn: Callable[[str], dict] | None = None, topics: list[str] | None = None,
+                 linkedin: "LI.LinkedInClient | None" = None, config_dir: Path | None = None) -> None:
         self.root = root
+        self.li = linkedin or LI.HttpLinkedIn()
+        self.li_store = LI.Store(config_dir)
+        self._oauth_states: dict[str, float] = {}
+        self._publish_lock = threading.Lock()
         self._topics = topics
         self.store = Store(db_path)
         self.abstract_fn = abstract_fn or _abstract_online
@@ -110,6 +121,71 @@ class Service:
             return PO.read_post(self.root, slug)
         except FileNotFoundError as e:
             raise NotFound(slug) from e
+
+    # ── LinkedIn 게시 (화면 버튼으로만) ─────────────────
+    def linkedin_status(self) -> dict:
+        return LI.status(self.li_store)
+
+    def linkedin_connect_url(self, redirect_uri: str) -> str:
+        import secrets
+        app = self.li_store.app()
+        if not app:
+            raise Unavailable("LinkedIn 앱 키가 없습니다. 터미널에서 `python -m paper_analyst.linkedin setup` 으로 넣으세요 (README 'LinkedIn 게시').")
+        now = time.time()
+        self._oauth_states = {s: t for s, t in self._oauth_states.items() if now - t < 600}
+        state = secrets.token_urlsafe(16)
+        self._oauth_states[state] = now
+        q = urllib.parse.urlencode({"response_type": "code", "client_id": app["client_id"], "redirect_uri": redirect_uri,
+                                    "state": state, "scope": LI.SCOPE})
+        return f"{LI.AUTH_URL}?{q}"
+
+    def linkedin_callback(self, code: str, state: str, redirect_uri: str) -> dict:
+        started = self._oauth_states.pop(state, None)
+        if started is None or time.time() - started > 600:
+            raise ValueError("연결 요청이 만료됐거나 이 서버에서 시작한 요청이 아닙니다. 화면에서 다시 연결하세요.")
+        app = self.li_store.app()
+        if not app:
+            raise Unavailable("LinkedIn 앱 키가 없습니다")
+        try:
+            tok = self.li.exchange_code(code, redirect_uri, app["client_id"], app["client_secret"])
+            info = self.li.userinfo(tok["access_token"])
+        except (LI.LinkedInError, KeyError) as e:
+            raise Unavailable(f"LinkedIn 연결 실패: {e}") from e
+        self.li_store.save_token({"access_token": tok["access_token"], "expires_at": time.time() + int(tok.get("expires_in", 0)),
+                                  "sub": info.get("sub", ""), "name": info.get("name", "")})
+        return self.linkedin_status()
+
+    def linkedin_disconnect(self) -> dict:
+        self.li_store.clear()
+        return self.linkedin_status()
+
+    def linkedin_publish(self, slug: str, sha: str) -> dict:
+        with self._publish_lock:                      # 같은 글을 동시에 두 번 누르는 경우
+            st = self.linkedin_status()
+            if not st["connected"]:
+                raise Unavailable("LinkedIn 이 연결돼 있지 않거나 토큰이 만료됐습니다. 발행 탭에서 다시 연결하세요.")
+            p = self.post(slug)
+            li = p.get("linkedin")
+            if not li:
+                raise NotFound(f"{slug}/linkedin.md")
+            if p.get("published", {}).get("linkedin"):
+                raise Conflict("이미 게시한 글입니다: " + p["published"]["linkedin"].get("url", ""))
+            ch = li["check"]
+            if ch["private_hits"] or ch.get("over_limit"):
+                raise Conflict("점검 경고가 남아 있어 게시하지 않습니다 (개인 메모 겹침 또는 길이 초과). 초안을 고친 뒤 다시 하세요.")
+            if sha != li["sha"]:
+                raise Conflict("화면에 보인 글과 파일 내용이 다릅니다 (그사이 초안이 바뀜). 새로 고친 글을 확인한 뒤 다시 누르세요.")
+            tok = self.li_store.token()
+            try:
+                urn = self.li.create_post(tok["access_token"], f"urn:li:person:{tok['sub']}", li["plain"].rstrip())
+            except LI.LinkedInError as e:
+                if e.status == 401:
+                    self.li_store.clear()
+                    raise Unavailable("LinkedIn 토큰이 거부됐습니다 (만료·취소). 다시 연결하세요.") from e
+                raise Unavailable(str(e)) from e
+            info = {"urn": urn, "url": LI.post_url(urn), "at": time.strftime("%Y-%m-%d %H:%M:%S %Z"), "account": st["name"]}
+            PO.mark_published(self.root, slug, "linkedin", info)
+            return info
 
     # ── 태그·연결·메모·비교 ─────────────────────────────
     def topics(self) -> list[str]:

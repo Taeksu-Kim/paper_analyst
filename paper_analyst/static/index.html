@@ -142,6 +142,15 @@ button.tag.sug:hover { border-color: var(--accent); color: var(--accent); }
 .preview-plain .fold { border-top: 1px dashed var(--line-strong); margin: 6px 0; font-size: var(--fs-cap); color: var(--text-3); }
 pre.preview-src { white-space: pre-wrap; font-family: var(--mono); font-size: var(--fs-cap); background: var(--panel-2); border-radius: var(--radius); padding: 12px; max-height: 60vh; overflow: auto; }
 
+.pubbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 8px 12px; margin-bottom: 10px; background: var(--panel); font-size: var(--fs-label); }
+.pubbar .spacer { flex: 1; }
+.pubbar .done { color: var(--ok); font-weight: 600; }
+dialog.confirm { border: 1px solid var(--line-strong); border-radius: var(--radius-lg); padding: 18px 20px; max-width: 440px; width: calc(100% - 32px); background: var(--panel); color: var(--text); }
+dialog.confirm::backdrop { background: rgba(0,0,0,.35); }
+dialog.confirm h2 { font-size: var(--fs-h3); margin: 0 0 8px; }
+dialog.confirm p { margin: 0 0 8px; font-size: var(--fs-label); color: var(--text-2); }
+dialog.confirm .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+
 /* 비교 */
 .cmp-head { padding: 16px 24px 0; }
 .cmp-wrap { overflow-x: auto; padding: 12px 24px 48px; }
@@ -278,6 +287,12 @@ table.cmp .empty-cell { color: var(--text-3); }
   </section>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<dialog class="confirm" id="li-dialog" aria-labelledby="li-dialog-h">
+  <h2 id="li-dialog-h">LinkedIn 에 게시</h2>
+  <p id="li-dialog-body"></p>
+  <p>올린 뒤에는 LinkedIn 에서 직접 지워야 합니다.</p>
+  <div class="row"><button class="btn" id="li-cancel">취소</button><button class="btn primary" id="li-confirm">게시</button></div>
+</dialog>
 
 <script>
 const $ = s => document.querySelector(s);
@@ -493,6 +508,7 @@ async function loadPub() {
   if (S.post && !S.posts.some(x => x.slug === S.post)) S.post = null;
   S.post = S.post || (S.posts[0] && S.posts[0].slug);
   S.postData = S.post ? await api(`/api/posts/${encodeURIComponent(S.post)}`).catch(() => null) : null;
+  S.li = await api('/api/linkedin').catch(() => null);
   if (S.view === 'pub') renderPub();
 }
 function renderPub() {
@@ -513,8 +529,9 @@ function renderPub() {
   let body = '', copy = '';
   if (S.ptab === 'linkedin') {
     const txt = v.plain, fold = txt.indexOf('\n') > -1 ? Math.min(txt.indexOf('\n'), 210) : 210;
-    body = `<div class="preview-plain">${esc(txt.slice(0, fold))}<div class="fold">— 여기까지 ‘더 보기’ 전에 보임 (어림값) —</div>${esc(txt.slice(fold))}</div>`;
+    body = `<div class="preview-plain">${esc(txt.slice(0, fold))}<div class="fold">— 여기까지 ‘더 보기’ 전에 보임 (어림값) —</div>${esc(txt.slice(fold).replace(/^\n+/, ''))}</div>`;
     copy = `<button class="btn primary" data-copy="linkedin">글자 복사</button>`;
+    body = linkedinBar(d, warn.length) + body;
   } else if (S.ptab === 'blog') {
     body = `<div class="md doc" style="padding:0">${v.html}</div>`;
     copy = `<button class="btn primary" data-copy="blog">마크다운 복사</button>`;
@@ -529,6 +546,18 @@ function renderPub() {
     ${body}
     ${d.sources && d.sources.length ? `<p class="meta" style="margin-top:12px">재료: ${d.sources.map(s => /^\d{4}\.\d{4,5}$/.test(s) ? `<button class="go" data-paper="${esc(s)}" style="border:0;background:none;padding:0;color:var(--accent);cursor:pointer">${esc(s)}</button>` : esc(s)).join(' · ')}</p>` : ''}
   </div>`;
+}
+function linkedinBar(d, nWarn) {
+  const li = S.li, pub = (d.published || {}).linkedin;
+  if (pub) return `<div class="pubbar"><span class="done">게시됨</span><span>${esc(pub.at)} · ${esc(pub.account || '')}</span><span class="spacer"></span>
+    <a class="btn" href="${esc(pub.url)}" target="_blank" rel="noopener">LinkedIn 에서 보기</a></div>`;
+  if (!li) return '';
+  if (!li.configured) return `<div class="pubbar"><span class="hint">LinkedIn 에 바로 게시하려면 앱 키가 필요합니다 — README 의 ‘LinkedIn 게시’ 절. 키 없이도 글자 복사로 올릴 수 있습니다.</span></div>`;
+  if (!li.connected) return `<div class="pubbar"><span>${li.expired ? 'LinkedIn 연결이 만료됐습니다 (60일).' : 'LinkedIn 계정이 연결돼 있지 않습니다.'}</span><span class="spacer"></span>
+    <a class="btn" href="/api/linkedin/connect">LinkedIn 연결</a></div>`;
+  return `<div class="pubbar"><span>계정 <b>${esc(li.name)}</b></span><span class="hint">연결 만료 ${new Date(li.expires_at * 1000).toLocaleDateString('ko-KR')}</span>
+    <span class="spacer"></span><button class="btn quiet" id="li-disconnect">연결 끊기</button>
+    <button class="btn primary" id="li-publish" ${nWarn ? 'disabled title="점검 경고를 먼저 고치세요"' : ''}>LinkedIn 에 게시</button></div>`;
 }
 async function copyText(kind, btn) {
   const d = S.postData; if (!d) return;
@@ -798,6 +827,21 @@ document.addEventListener('click', async ev => {
     case 'tab-cand': return setView('cand');
     case 'tab-cmp': return setView('cmp');
     case 'tab-pub': return setView('pub');
+    case 'li-publish': {
+      const d = S.postData;
+      $('#li-dialog-body').textContent = `‘${S.li.name}’ 계정에 전체 공개로 게시합니다. ${fmtN(d.linkedin.check.chars)}자, 미리보기에 보이는 글 그대로 올라갑니다.`;
+      $('#li-dialog').showModal(); $('#li-cancel').focus(); return;
+    }
+    case 'li-cancel': return $('#li-dialog').close();
+    case 'li-confirm': {
+      const btn = $('#li-confirm'); btn.disabled = true; btn.textContent = '게시 중…';
+      try { const r = await api(`/api/posts/${encodeURIComponent(S.post)}/linkedin`, { method: 'POST', body: { sha: S.postData.linkedin.sha } });
+        $('#li-dialog').close(); toast('LinkedIn 에 게시했습니다'); await loadPub(); }
+      catch (e) { $('#li-dialog').close(); toast(e.message); await loadPub(); }
+      finally { btn.disabled = false; btn.textContent = '게시'; } return;
+    }
+    case 'li-disconnect':
+      try { await api('/api/linkedin/disconnect', { method: 'POST' }); toast('LinkedIn 연결을 끊었습니다'); await loadPub(); } catch (e) { toast(e.message); } return;
     case 'link-add': {
       const dst = $('#link-dst').value, kind = $('#link-kind').value;
       if (!dst) { toast('연결할 논문을 고르세요'); $('#link-dst').focus(); return; }
@@ -837,7 +881,8 @@ mq.addEventListener('change', narrow); narrow();
 (async () => {
   try {
     await Promise.all([loadStatus(), loadLib()]);
-    welcome(); renderCmpTab(); loadCand(); loadPubCount(); await loadChats();
+    if (location.hash === '#pub') { setView('pub'); history.replaceState(null, '', '/'); } else welcome();
+    renderCmpTab(); loadCand(); loadPubCount(); await loadChats();
   } catch (e) {
     $('#main').innerHTML = `<div class="empty"><h2>서버에 연결하지 못했습니다</h2><p>${esc(e.message)}<br>터미널에서 <span class="ex">python -m paper_analyst serve</span> 가 켜져 있는지 확인하세요.</p></div>`;
   }

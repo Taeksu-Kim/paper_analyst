@@ -5,6 +5,21 @@
 분야는 프로필(`profiles/*.toml`)로 바꾼다. PDF 를 Claude 에 직접 넣지 않는다 — 변환된 md 만 절 단위로 읽는다 (토큰).
 범위: 후보 소스와 받기가 arXiv 기반이라 **arXiv 에 올라오는 분야**에서 동작한다.
 
+## 화면
+
+![서재 — 논문 결론·태그·연결과 화면 속 Claude 대화](docs/images/library.png)
+서재: 왼쪽 목록(상태·태그로 거르기) · 가운데 논문(결론 블록 → 태그 → 연결 → notes) · 오른쪽 Claude 대화 (도구 실행이 줄로 보임)
+
+| 결론 비교 | 후보함 |
+|---|---|
+| ![결론 비교](docs/images/compare.png) | ![후보함](docs/images/candidates.png) |
+| 담은 논문들의 결론을 항목별로 나란히 | 신호(★·HN·인용·키워드)로 모은 후보를 읽기·보류·제외 |
+
+![발행 — LinkedIn 초안, 점검 결과, 게시 버튼](docs/images/publish.png)
+발행: 초안을 LinkedIn 글자 / 블로그 마크다운 / 티스토리 HTML 로 보고 복사하거나, 확인 창을 거쳐 LinkedIn 에 게시
+
+(캡처는 `python tools/screenshots.py` — 실제 서재의 공개 파일만 복사해 찍는다. 대화 패널은 예시 대화)
+
 ## 처음 쓰는 사람
 
 ```bash
@@ -33,12 +48,28 @@ claude                                 # Claude Code 설치·로그인 (스킬�
 **대화 세션 2종**
 - **Claude Code** — 서버가 이 폴더에서 `claude -p --output-format stream-json`(첫 턴 `--session-id`, 이후 `--resume`)을 실행한다.
   스킬·CLAUDE.md 가 그대로 적용되고, 결과 파일이 생기면 서재가 바로 갱신된다. **대화 내용이 Anthropic 으로 전송된다.**
-  권한은 허용 목록만 (`paper_analyst/chat.py` `ALLOWED`): 도구 실행(`python -m paper_analyst.*`), 읽기·검색, 웹 검색,
+  권한은 허용 목록만 (`paper_analyst/chat.py` `ALLOWED`): 도구 실행(`python -m paper_analyst.*`), **저장소 안** 읽기·검색 (밖은 거부), 웹 검색,
   `library/`·`lists/`·`ideas/`·`profiles/`·`posts/` 쓰기. 그 밖은 거부되고 화면에 "거부" 로 보인다 (화면에서 승인하는 창구는 없다).
 - **로컬 LLM** — vLLM(OpenAI 호환, 기본 `http://<호스트 IP>:8002/v1`, `PAPER_LLM_URL` 로 변경)의 Qwen. 서재 조회·notes 읽기·제목→id·
   후보 보기·받기 도구만 쓴다 (정리는 하지 않는다). 서버가 꺼져 있으면 선택지가 잠기고 켜는 법이 보인다.
 - 대화·실행 기록·후보 판정·태그·연결은 `data/paper_analyst.db` (SQLite, git 제외) — 서버를 다시 켜도 같은 대화를 이어간다.
-- **자동 게시는 하지 않는다.** LinkedIn 은 개발자 앱 등록·OAuth 가 필요하고, 티스토리 Open API 는 종료된 것으로 안다 (둘 다 확인 안 함) → 복사해서 붙여 넣는다.
+- **게시는 사람이 누를 때만.** LinkedIn 은 발행 탭의 "LinkedIn 에 게시"(확인 창 → 한 번만, 아래 설정 필요). 티스토리는 Open API 가 종료된 것으로 알아 (확인 안 함) HTML 을 복사해 붙여 넣는다. 예약·자동 게시는 없다.
+
+## LinkedIn 게시 (선택)
+
+발행 탭의 **LinkedIn 에 게시** 버튼으로 본인 프로필에 올린다 — 공식 API, 사람이 확인 창에서 누를 때만, 한 글은 한 번만.
+설정 없이도 **글자 복사**로 직접 붙여 넣을 수 있다.
+
+처음 한 번 (약 15분) — **자세한 단계·문제 해결은 [docs/LINKEDIN.md](docs/LINKEDIN.md)**:
+1. 본인 LinkedIn 페이지 만들기 (개발자 앱은 개인 프로필이 아니라 페이지에 연결해야 한다 — 글은 개인 프로필로 올라감)
+2. 개발자 앱 만들기 → Verify → 제품 2개(Share on LinkedIn, Sign In with LinkedIn using OpenID Connect)
+3. Redirect URL `http://127.0.0.1:8768/api/linkedin/callback` 등록
+4. 별도 터미널에서 `python -m paper_analyst.linkedin setup` 으로 키 입력 (Secret 숨김, 저장소 밖 `~/.config/side-projects/` 에 저장)
+5. 화면(**http://127.0.0.1:8768**) 발행 탭 → **LinkedIn 연결** → **LinkedIn 에 게시**
+
+연결은 60일마다 다시 한다. 화면 속 AI 세션에는 게시 권한이 없다.
+이 저장소의 `.claude/settings.json` 은 키 폴더 읽기·쓰기를 막는 **거부 규칙만** 담고 있다 — 이 저장소에서 연 Claude Code 세션에만
+적용되고 각자의 전역 설정은 건드리지 않는다. 원치 않으면 그 파일을 지우면 된다.
 
 ## import (엔진)
 
@@ -76,12 +107,15 @@ paper_analyst/
 │   ├── store.py · service.py      # 상태(SQLite) · 서비스 (화면 API 가 부르는 유일한 층)
 │   ├── chat.py              # 대화 세션 2종 (Claude Code · 로컬 LLM)
 │   ├── post.py              # 발행 초안 읽기·점검 (개인 메모 겹침·길이)
+│   ├── linkedin.py          # LinkedIn 공식 API (OAuth·게시) — 화면 버튼으로만
 │   └── app.py · __main__.py · static/index.html   # 제품 API · serve · 화면
 ├── profiles/                # nlp.toml (예시) · active (git 제외) · *.private.md (git 제외)
 ├── lists/ · ideas/          # 읽을 목록 · 논문에서 나온 논의·설계안
 ├── docs/SOURCES.md          # 어느 소스를 언제 쓰나 + 측정 근거
+├── docs/LINKEDIN.md         # LinkedIn 연동 단계·문제 해결
 ├── tests/test_api.py        # 제품 API 진입점 테스트 (모델·네트워크만 가짜)
 ├── tools/browser_check.py   # 실제 브라우저 점검 (실제 서재 복사본 + 가짜 세션)
+├── tools/screenshots.py     # README 캡처 (docs/images/)
 ├── data/ · posts/           # (git 제외) 화면 상태 DB · 발행 초안
 └── library/
     ├── papers/<arxiv_id>/   # meta.json · notes.md · (git 제외) paper.pdf · paper.html · parsed/ · external.json · notes.private.md
