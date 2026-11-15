@@ -129,6 +129,19 @@ button.tag.sug:hover { border-color: var(--accent); color: var(--accent); }
 .memo textarea { width: 100%; min-height: 84px; border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 8px 10px; background: var(--panel); line-height: 1.5; resize: vertical; }
 .memo .row { display: flex; gap: 8px; align-items: center; justify-content: flex-end; margin-top: 4px; }
 
+/* 발행 */
+.pub-head { padding: 16px 24px 8px; border-bottom: 1px solid var(--line); }
+.pub-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.pub-body { padding: 16px 24px 48px; max-width: 860px; }
+.ptabs { display: flex; gap: 4px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+.ptabs .spacer { flex: 1; }
+.warn { border: 1px solid var(--err); background: var(--err-soft); color: var(--err); border-radius: var(--radius); padding: 8px 12px; font-size: var(--fs-label); margin-bottom: 10px; }
+.warn ul { margin: 4px 0 0; padding-left: 18px; }
+.okline { font-size: var(--fs-cap); color: var(--ok); margin-bottom: 10px; }
+.preview-plain { white-space: pre-wrap; border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 14px 16px; background: var(--panel); line-height: 1.7; }
+.preview-plain .fold { border-top: 1px dashed var(--line-strong); margin: 6px 0; font-size: var(--fs-cap); color: var(--text-3); }
+pre.preview-src { white-space: pre-wrap; font-family: var(--mono); font-size: var(--fs-cap); background: var(--panel-2); border-radius: var(--radius); padding: 12px; max-height: 60vh; overflow: auto; }
+
 /* 비교 */
 .cmp-head { padding: 16px 24px 0; }
 .cmp-wrap { overflow-x: auto; padding: 12px 24px 48px; }
@@ -227,6 +240,7 @@ table.cmp .empty-cell { color: var(--text-3); }
     <button class="tab" role="tab" id="tab-lib" aria-selected="true">서재</button>
     <button class="tab" role="tab" id="tab-cand" aria-selected="false">후보함<span class="n" id="cand-n"></span></button>
     <button class="tab" role="tab" id="tab-cmp" aria-selected="false" hidden>비교<span class="n" id="cmp-n"></span></button>
+    <button class="tab" role="tab" id="tab-pub" aria-selected="false">발행<span class="n" id="pub-n"></span></button>
   </nav>
   <span class="spacer"></span>
   <button class="btn quiet" id="lib-toggle" style="display:none">목록</button>
@@ -283,7 +297,7 @@ const S = {
   view: 'lib', lib: null, sel: null, filter: 'all', q: '', seen: null, fresh: new Set(),
   cand: null, candView: 'signal', openAbs: new Set(), abs: {},
   backends: [], chats: [], chatId: null, es: null, running: false, attach: true, tools: {},
-  tag: null, cmp: loadCmp(), paper: null,
+  tag: null, cmp: loadCmp(), paper: null, posts: [], post: null, ptab: 'linkedin',
 };
 const ORDER = ['to_read', 'noted', 'applied', 'fetched', 'hold'];
 function loadCmp() { try { return JSON.parse(localStorage.getItem('pa.cmp') || '[]'); } catch { return []; } }
@@ -390,7 +404,8 @@ async function showPaper(id, quiet = false) {
     <div class="bar">
       <span class="lbl">상태</span><span class="chip">${esc(names[manual || auto])}</span>${stBtns}
       <span class="sep"></span>${ask}
-      ${p.has_notes ? `<button class="btn" data-cmp="${esc(p.id)}" aria-pressed="${inCmp}">${inCmp ? '비교에서 빼기' : '비교에 담기'}</button>` : ''}
+      ${p.has_notes ? `<button class="btn" data-cmp="${esc(p.id)}" aria-pressed="${inCmp}">${inCmp ? '비교에서 빼기' : '비교에 담기'}</button>
+        <button class="btn" data-ask="이 논문으로 paper-post 글 초안 만들어줘 (LinkedIn·블로그)">글 초안 만들기</button>` : ''}
       <a class="btn quiet" href="${esc(p.abs_url)}" target="_blank" rel="noopener">arXiv 열기</a>
     </div>
     ${p.conclusion ? `<div class="concl"><span class="k">결론</span><span class="v">${esc(p.conclusion)}</span></div>` : ''}
@@ -467,6 +482,64 @@ async function renderCompare() {
       ${LABELS.map(lab => `<tr><th class="row">${lab}</th>${rows.map(r => `<td>${cell(r, lab)}</td>`).join('')}</tr>`).join('')}
       ${extra ? `<tr><th class="row">그 밖</th>${rows.map(r => `<td>${cell(r, null)}</td>`).join('')}</tr>` : ''}
       </tbody></table></div>`;
+}
+/* ── 발행 ─────────────────────────────────── */
+async function loadPubCount() {
+  try { S.posts = await api('/api/posts'); $('#pub-n').textContent = S.posts.length || ''; } catch { /* 숫자만 못 보여 줌 */ }
+}
+async function loadPub() {
+  try { S.posts = await api('/api/posts'); } catch (e) { $('#main').innerHTML = `<div class="empty"><h2>초안 목록을 불러오지 못했습니다</h2><p>${esc(e.message)}</p></div>`; return; }
+  $('#pub-n').textContent = S.posts.length || '';
+  if (S.post && !S.posts.some(x => x.slug === S.post)) S.post = null;
+  S.post = S.post || (S.posts[0] && S.posts[0].slug);
+  S.postData = S.post ? await api(`/api/posts/${encodeURIComponent(S.post)}`).catch(() => null) : null;
+  if (S.view === 'pub') renderPub();
+}
+function renderPub() {
+  const head = `<div class="pub-head"><h1 class="title" style="font-size:var(--fs-h2);margin:0">발행 초안</h1>
+    <p class="meta" style="margin:4px 0 0">정리된 논문을 열고 <b>글 초안 만들기</b>를 누르면 Claude 가 paper-post 스킬로 초안을 씁니다. 게시는 복사해서 직접 합니다.</p>
+    ${S.posts.length ? `<div class="pub-list">${S.posts.map(x => `<button class="btn" data-post="${esc(x.slug)}" aria-pressed="${x.slug === S.post}">${esc(x.title)}</button>`).join('')}</div>` : ''}</div>`;
+  const d = S.postData;
+  if (!d) { $('#main').innerHTML = head + `<div class="empty"><h2>아직 초안이 없습니다</h2><p>예: 서재에서 논문을 열고 <b>글 초안 만들기</b>, 또는 대화창에 <span class="ex">이 두 논문 엮어서 링크드인 글 써줘</span></p></div>`; return; }
+  const kinds = [['linkedin', 'LinkedIn', d.linkedin], ['blog', '블로그 (마크다운)', d.blog], ['tistory', '티스토리 (HTML)', d.blog]].filter(k => k[2]);
+  if (!kinds.some(k => k[0] === S.ptab)) S.ptab = kinds[0] ? kinds[0][0] : 'linkedin';
+  const v = S.ptab === 'tistory' ? d.blog : d[S.ptab];
+  const ch = v ? v.check : null;
+  const warn = ch ? [
+    ...(ch.private_hits || []).map(h => `${h.line}행이 개인 메모(${esc(h.source)})와 ${Math.round(h.ratio * 100)}% 겹칩니다 — “${esc(h.text)}”`),
+    ...(ch.over_limit ? [`본문이 ${fmtN(ch.chars)}자로 LinkedIn 한도 ${fmtN(ch.limit)}자를 넘습니다`] : []),
+    ...(ch.hook_cut ? ['첫 줄이 길어 ‘더 보기’ 전에 다 보이지 않을 수 있습니다 (약 210자 기준, 어림값)'] : []),
+  ] : [];
+  let body = '', copy = '';
+  if (S.ptab === 'linkedin') {
+    const txt = v.plain, fold = txt.indexOf('\n') > -1 ? Math.min(txt.indexOf('\n'), 210) : 210;
+    body = `<div class="preview-plain">${esc(txt.slice(0, fold))}<div class="fold">— 여기까지 ‘더 보기’ 전에 보임 (어림값) —</div>${esc(txt.slice(fold))}</div>`;
+    copy = `<button class="btn primary" data-copy="linkedin">글자 복사</button>`;
+  } else if (S.ptab === 'blog') {
+    body = `<div class="md doc" style="padding:0">${v.html}</div>`;
+    copy = `<button class="btn primary" data-copy="blog">마크다운 복사</button>`;
+  } else {
+    body = `<pre class="preview-src">${esc(v.html)}</pre>`;
+    copy = `<button class="btn primary" data-copy="tistory">HTML 복사</button>`;
+  }
+  $('#main').innerHTML = head + `<div class="pub-body">
+    <div class="ptabs">${kinds.map(([k, n]) => `<button class="btn" data-ptab="${k}" aria-pressed="${S.ptab === k}">${n}</button>`).join('')}
+      <span class="spacer"></span><span class="hint">${ch ? fmtN(ch.chars) + '자' : ''}</span>${copy}</div>
+    ${warn.length ? `<div class="warn"><b>고칠 것 ${warn.length}건</b><ul>${warn.map(w => `<li>${w}</li>`).join('')}</ul></div>` : '<div class="okline">점검 통과 — 개인 메모 겹침 없음' + (S.ptab === 'linkedin' ? ' · 길이 한도 안' : '') + '</div>'}
+    ${body}
+    ${d.sources && d.sources.length ? `<p class="meta" style="margin-top:12px">재료: ${d.sources.map(s => /^\d{4}\.\d{4,5}$/.test(s) ? `<button class="go" data-paper="${esc(s)}" style="border:0;background:none;padding:0;color:var(--accent);cursor:pointer">${esc(s)}</button>` : esc(s)).join(' · ')}</p>` : ''}
+  </div>`;
+}
+async function copyText(kind, btn) {
+  const d = S.postData; if (!d) return;
+  const text = kind === 'linkedin' ? d.linkedin.plain : kind === 'blog' ? d.blog.md : d.blog.html;
+  try { await navigator.clipboard.writeText(text); }
+  catch {   // 권한이 없으면 숨은 입력창으로
+    const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove();
+    if (!ok) { toast('복사하지 못했습니다 — 미리보기에서 직접 선택해 복사하세요'); return; }
+  }
+  toast(`${{ linkedin: 'LinkedIn 글자', blog: '마크다운', tistory: 'HTML' }[kind]}를 복사했습니다 (${fmtN(text.length)}자)`);
 }
 function dedupe(md, p) {   // 위에 이미 보인 제목·결론 문장은 notes 본문에서 뺀다
   if (!md) return;
@@ -613,7 +686,7 @@ function onEvent(e) {
     if (el) { const st = el.querySelector('.st'); st.className = 'st ' + (d.ok ? 'ok' : 'bad'); st.textContent = d.ok ? '완료' : '거부·실패'; }
     if (!d.ok && d.summary) add(`<div class="tool-err">${esc(d.summary)}</div>`);
   } else if (e.type === 'library_changed') {
-    loadLib(true); loadCand();
+    loadLib(true); loadCand(); if (S.view === 'pub') loadPub(); else loadPubCount();
   } else if (e.type === 'error') add(`<div class="endline bad">${esc(d.message)}</div>`);
   else if (e.type === 'done') {
     if (d.denied && d.denied.length) add(`<div class="endline bad">허용 목록 밖의 도구 ${d.denied.length}건이 거부됐습니다 (${esc([...new Set(d.denied)].join(', '))})</div>`);
@@ -654,12 +727,13 @@ function newChatMenu(btn) {
 }
 function setTabs(v) {
   S.view = v;
-  for (const k of ['lib', 'cand', 'cmp']) $('#tab-' + k).setAttribute('aria-selected', v === k);
+  for (const k of ['lib', 'cand', 'cmp', 'pub']) $('#tab-' + k).setAttribute('aria-selected', v === k);
   renderCmpTab();
 }
 function setView(v) {
   setTabs(v);
-  if (v === 'cmp') { S.sel = null; renderLib(); renderAttach(); $('#main').innerHTML = '<div class="doc"><div class="skeleton"></div><div class="skeleton"></div></div>'; renderCompare(); }
+  if (v === 'pub') { S.sel = null; renderLib(); renderAttach(); $('#main').innerHTML = '<div class="doc"><div class="skeleton"></div><div class="skeleton"></div></div>'; loadPub(); }
+  else if (v === 'cmp') { S.sel = null; renderLib(); renderAttach(); $('#main').innerHTML = '<div class="doc"><div class="skeleton"></div><div class="skeleton"></div></div>'; renderCompare(); }
   else if (v === 'cand') { S.sel = null; renderLib(); renderAttach(); $('#main').innerHTML = '<div class="doc"><div class="skeleton"></div><div class="skeleton"></div></div>'; loadCand(); }
   else if (S.sel && S.sel.kind === 'paper') showPaper(S.sel.id); else welcome();
 }
@@ -685,6 +759,9 @@ document.addEventListener('click', async ev => {
     toast(S.cmp.includes(id) ? `비교에 담았습니다 (${S.cmp.length}편)` : '비교에서 뺐습니다');
     return showPaper(id, true);
   }
+  if (t.dataset.post) { S.post = t.dataset.post; return loadPub(); }
+  if (t.dataset.ptab) { S.ptab = t.dataset.ptab; return renderPub(); }
+  if (t.dataset.copy) return copyText(t.dataset.copy, t);
   if (t.dataset.uncmp) { S.cmp = S.cmp.filter(x => x !== t.dataset.uncmp); saveCmp(); return renderCompare(); }
   if (t.dataset.st !== undefined) {
     try { await api(`/api/papers/${S.sel.id}/status`, { method: 'PUT', body: { status: t.dataset.st || null } });
@@ -720,6 +797,7 @@ document.addEventListener('click', async ev => {
     case 'tab-lib': return setView('lib');
     case 'tab-cand': return setView('cand');
     case 'tab-cmp': return setView('cmp');
+    case 'tab-pub': return setView('pub');
     case 'link-add': {
       const dst = $('#link-dst').value, kind = $('#link-kind').value;
       if (!dst) { toast('연결할 논문을 고르세요'); $('#link-dst').focus(); return; }
@@ -759,7 +837,7 @@ mq.addEventListener('change', narrow); narrow();
 (async () => {
   try {
     await Promise.all([loadStatus(), loadLib()]);
-    welcome(); renderCmpTab(); loadCand(); await loadChats();
+    welcome(); renderCmpTab(); loadCand(); loadPubCount(); await loadChats();
   } catch (e) {
     $('#main').innerHTML = `<div class="empty"><h2>서버에 연결하지 못했습니다</h2><p>${esc(e.message)}<br>터미널에서 <span class="ex">python -m paper_analyst serve</span> 가 켜져 있는지 확인하세요.</p></div>`;
   }

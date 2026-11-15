@@ -54,17 +54,17 @@ def with_paper(ctx: ChatCtx, text: str) -> str:
 
 # ── ① Claude Code ─────────────────────────────────────────────
 
-TOOLS = ("fetch", "enrich", "discover", "resolve", "profile")
+TOOLS = ("fetch", "enrich", "discover", "resolve", "profile", "post")
 # 공통 CLAUDE.md 가 파이썬 절대경로를 쓰라고 해서 Claude 가 그 형태로도 부른다 (실측 2026-11-15) → 두 형태 모두 허용
 ALLOWED = [
     "Read", "Grep", "Glob", "WebSearch", "WebFetch", "Skill",
     *[f"Bash({py} -m paper_analyst.{t}:*)" for py in ("python", sys.executable) for t in TOOLS],
     "Bash(grep:*)", "Bash(ls:*)", "Bash(wc:*)", "Bash(head:*)",
-    "Edit(library/**)", "Edit(lists/**)", "Edit(ideas/**)", "Edit(profiles/**)",
+    "Edit(library/**)", "Edit(lists/**)", "Edit(ideas/**)", "Edit(profiles/**)", "Edit(posts/**)",
 ]
 SYSTEM = (
     "너는 paper_analyst 화면에 심어진 세션이다. 사용자는 브라우저 대화창으로 말하고, 화면 왼쪽 서재는 저장소 파일을 그대로 보여 준다. "
-    "논문 정리·후보 목록·아이디어는 스킬 규칙대로 파일(library/papers/<id>/notes.md, lists/, ideas/)로 남겨야 서재에 나타난다. "
+    "논문 정리·후보 목록·아이디어·글 초안은 스킬 규칙대로 파일(library/papers/<id>/notes.md, lists/, ideas/, posts/)로 남겨야 화면에 나타난다. "
     "개인 맥락은 *.private.md 에. 채팅 답은 짧게 — 긴 내용은 파일에 쓰고 무엇을 어디에 썼는지만 말한다. "
     "셸 명령은 하나씩 실행한다 — `;`·`&&`·`|`·`echo` 를 붙이면 승인이 필요해 거부된다. "
     "허용 목록 밖의 도구는 거부된다 (화면에 승인 창구가 없음) — 거부되면 대신 할 수 있는 방법을 말한다."
