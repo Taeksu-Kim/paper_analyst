@@ -42,6 +42,18 @@ _pd.mkdir(parents=True)
                                  "- 순서 바꿈 강건성은 양쪽 순서 모두 정답일 때만\n- 누락형 오류는 따로 잰다\n\n"
                                  "이 줄은 비공개 메모에서 옮겨 온 문장이라 경고가 떠야 합니다\n\n출처: https://arxiv.org/abs/2610.09229\n#LLM #평가")
 (_pd / "blog.md").write_text("# 판정기 고르기\n\n## 논문이 보인 것\n\n| 조건 | 결과 |\n|---|---|\n| 순서 | 강건성 0.87 |\n")
+# 게시 전 초안 하나 더 + 이미 게시한 글 하나 (발행 탭이 둘을 나눠 보이는지)
+for slug, meta, body in [
+    ("2026-11-14_older", {"title": "아주 긴 제목의 게시 전 초안 — 휴대폰 폭에서 말줄임으로 잘려야 하고 가로 스크롤이 생기면 안 됩니다", "created": "2026-11-14"},
+     "게시 전 두 번째 초안입니다.\n"),
+    ("2026-11-10_done", {"title": "이미 올린 글", "created": "2026-11-10",
+                         "published": {"linkedin": {"urn": "urn:li:share:9", "url": "https://www.linkedin.com/feed/update/urn:li:share:9/",
+                                                    "at": "2026-11-11 09:00:00 KST", "account": "테스트 계정"}}},
+     "이미 올린 글의 본문입니다.\n"),
+]:
+    (TMP / "posts" / slug).mkdir(parents=True)
+    (TMP / "posts" / slug / "meta.json").write_text(json.dumps(meta, ensure_ascii=False))
+    (TMP / "posts" / slug / "linkedin.md").write_text(body)
 (TMP / "library/papers/2603.28052/notes.private.md").write_text("# 개인\n- 이 줄은 비공개 메모에서 옮겨 온 문장이라 경고가 떠야 합니다 (원문)\n")
 N_NOTED = sum(1 for d in (TMP / "library" / "papers").iterdir() if (d / "notes.md").exists())
 N_ALL = sum(1 for d in (TMP / "library" / "papers").iterdir())
@@ -282,6 +294,23 @@ with sync_playwright() as p:
     page.click("#tab-pub")
     page.wait_for_selector(".pub-body")
     check("발행: 초안 목록 + LinkedIn 미리보기", "판정기는 한 숫자로" in page.inner_text(".pub-head") and page.is_visible(".preview-plain"))
+    todo_rows = page.locator(".pub-group:not(details) .pub-row"); done_rows = page.locator("#pub-done .pub-row")
+    check("발행: 게시 전 2 / 게시함 1 로 나뉨", todo_rows.count() == 2 and done_rows.count() == 1,
+          f"{todo_rows.count()} / {done_rows.count()}")
+    check("발행: 탭 숫자는 게시 전 초안만", page.inner_text("#pub-n") == "2", page.inner_text("#pub-n"))
+    check("발행: 게시함은 접힘, 처음 열리는 건 게시 전 초안",
+          not page.evaluate("document.querySelector('#pub-done').open") and
+          page.get_attribute(".pub-row[aria-pressed='true']", "data-post") == "2026-11-16_judge")
+    page.click("#pub-done > summary")
+    page.click(".pub-row[data-post='2026-11-10_done']")
+    page.wait_for_selector(".pubbar .done")
+    check("발행: 게시한 글 → 게시됨 표시, 게시 버튼 없음, 목록 펼친 채",
+          page.locator("#li-publish").count() == 0 and "LinkedIn 에서 보기" in page.inner_text(".pubbar")
+          and page.evaluate("document.querySelector('#pub-done').open"))
+    page.click("#pub-done > summary")
+    page.click(".pub-row[data-post='2026-11-16_judge']")
+    page.wait_for_function("document.querySelector(\".pub-row[aria-pressed='true']\").dataset.post === '2026-11-16_judge'")
+    check("발행: 직접 접은 상태는 다시 그려도 유지", not page.evaluate("document.querySelector('#pub-done').open"))
     check("발행: 개인 메모 겹침 경고", "개인 메모" in page.inner_text(".warn") and "1건" in page.inner_text(".warn"), page.inner_text(".warn")[:120] if page.locator(".warn").count() else "경고 없음")
     check("발행: '더 보기' 경계 표시", page.locator(".preview-plain .fold").count() == 1)
     check("발행: 기호 걷어낸 글자 (** 없음, • 목록)", "**" not in page.inner_text(".preview-plain") and "•" in page.inner_text(".preview-plain"))
@@ -322,6 +351,9 @@ with sync_playwright() as p:
     page.wait_for_selector(".pubbar .done")
     check("LinkedIn: 게시됨 + 링크, 한 번만", len(FAKE_LI.posts) == 1 and page.locator(".pubbar a[href*='feed/update']").count() == 1
           and FAKE_LI.posts[0][1].startswith("LLM 판정기를") and "\n\n• 순서" in FAKE_LI.posts[0][1])
+    check("게시 후: 게시함으로 옮겨지고 탭 숫자 줄어듦",
+          page.locator("#pub-done .pub-row[data-post='2026-11-16_judge']").count() == 1 and page.inner_text("#pub-n") == "1"
+          and page.evaluate("document.querySelector('#pub-done').open") is True)
     page.screenshot(path=str(TMP / "shot_1440_li_done.png"))
     page.click("button[data-paper='2603.28052']") if page.locator(".pub-body button[data-paper='2603.28052']").count() else None
     page.wait_for_selector("article h1")
@@ -390,6 +422,13 @@ with sync_playwright() as p:
             check("[390] 가로 스크롤 없음", page.evaluate("document.documentElement.scrollWidth <= innerWidth"))
         page.screenshot(path=str(TMP / f"shot_{w}.png"))
         basics(page, str(w))
+        page.click("#tab-pub")
+        page.wait_for_selector(".pub-body")
+        time.sleep(0.2)
+        page.screenshot(path=str(TMP / f"shot_{w}_pub.png"), full_page=True)
+        check(f"[{w}] 발행 탭 가로 스크롤 없음", page.evaluate("document.documentElement.scrollWidth <= innerWidth"))
+        page.click("#tab-lib")
+        time.sleep(0.2)
         if w <= 768:
             page.click("#chat-toggle")
             time.sleep(0.35)
@@ -404,6 +443,10 @@ with sync_playwright() as p:
     dark.click(f"button[data-paper='{TARGET}']")
     dark.wait_for_selector("article .concl")
     dark.screenshot(path=str(TMP / "shot_1440_dark.png"))
+    dark.click("#tab-pub")
+    dark.wait_for_selector(".pub-body")
+    dark.click("#pub-done > summary")
+    dark.screenshot(path=str(TMP / "shot_1440_pub_dark.png"))
     check("JS 오류 없음", not errors, "; ".join(errors[:5]))
     unexpected = [e for e in expected_4xx if "/abstract" not in e]
     check("4xx/5xx 응답 없음", not unexpected, "; ".join(unexpected[:5]))

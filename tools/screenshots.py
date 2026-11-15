@@ -35,9 +35,20 @@ for sub in ("lists", "ideas", "library/candidates", "posts"):
     if src.exists():
         shutil.copytree(src, TMP / sub, ignore=shutil.ignore_patterns("*.private.md"), dirs_exist_ok=True)
 assert not list(TMP.rglob("*.private.md")), "개인 메모가 복사됨"
-for p in (TMP / "posts").glob("*"):          # 캡처할 초안 하나만 남긴다
-    if p.name != "2026-11-15_paper-analyst-intro":
+# 캡처할 글 둘만 남긴다: 소개 글은 '게시 전'으로, LLMs Get Lost 는 '게시한 글'로 (계정 이름은 지운다)
+KEEP = {"2026-11-15_paper-analyst-intro": "todo", "2026-11-15_llms-get-lost": "done"}
+for p in (TMP / "posts").glob("*"):
+    if p.name not in KEEP:
         shutil.rmtree(p)
+        continue
+    m = json.loads((p / "meta.json").read_text(encoding="utf-8"))
+    m.pop("project_root", None)
+    if KEEP[p.name] == "todo":
+        m.pop("published", None)
+    else:
+        for v in (m.get("published") or {}).values():
+            v["account"] = "내 계정"
+    (p / "meta.json").write_text(json.dumps(m, ensure_ascii=False), encoding="utf-8")
 
 
 class Proc:
@@ -152,6 +163,8 @@ with sync_playwright() as p:
     page.screenshot(path=str(OUT / "candidates.png"))
     page.click("#tab-pub")
     page.wait_for_selector(".preview-plain")
+    page.click("#pub-done > summary")
+    time.sleep(0.2)
     page.screenshot(path=str(OUT / "publish.png"))
     b.close()
 for f in sorted(OUT.glob("*.png")):

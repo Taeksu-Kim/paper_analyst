@@ -131,7 +131,20 @@ button.tag.sug:hover { border-color: var(--accent); color: var(--accent); }
 
 /* 발행 */
 .pub-head { padding: 16px 24px 8px; border-bottom: 1px solid var(--line); }
-.pub-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.pub-groups { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin-top: 10px; }
+.pub-group { min-width: 0; }
+.pub-group > .gh { font-size: var(--fs-cap); color: var(--text-3); font-weight: 700; margin: 0 0 2px; padding: 2px 0; }
+details.pub-group > summary.gh { cursor: pointer; list-style-position: inside; }
+.pub-rows { display: flex; flex-direction: column; gap: 2px; }
+.pub-row { display: flex; gap: 10px; align-items: baseline; width: 100%; text-align: left; border: 1px solid transparent; background: none;
+  border-radius: var(--radius); padding: 6px 8px; cursor: pointer; color: var(--text); font-size: var(--fs-label); min-height: 32px; min-width: 0; }
+.pub-row:hover { background: var(--panel-2); }
+.pub-row[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
+.pub-row .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.pub-row .m { font-size: var(--fs-cap); color: var(--text-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pub-row.is-done .t { font-weight: 500; color: var(--text-2); }
+.pub-row.is-done .m b { color: var(--ok); font-weight: 600; }
+.pub-none { font-size: var(--fs-label); color: var(--text-3); padding: 4px 8px; margin: 0; }
 .pub-body { padding: 16px 24px 48px; max-width: 860px; }
 .ptabs { display: flex; gap: 4px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
 .ptabs .spacer { flex: 1; }
@@ -340,6 +353,7 @@ async function loadLib(markFresh = false) {
   }
 }
 function renderFilters() {
+  if (!S.lib) return;   // 서재를 불러오기 전에 다른 탭을 누른 경우 — 불러오면 다시 그린다
   const c = S.lib.counts, names = S.lib.status_names;
   const opts = [['all', '전체', S.lib.papers.length], ...ORDER.map(k => [k, names[k], c[k]])];
   $('#filters').innerHTML = opts.map(([k, n, v]) =>
@@ -357,6 +371,7 @@ function matches(p) {
   return (p.title + ' ' + p.id + ' ' + (p.conclusion || '')).toLowerCase().includes(S.q.toLowerCase());
 }
 function renderLib() {
+  if (!S.lib) return;   // 서재를 불러오기 전에 다른 탭을 누른 경우 — 불러오면 다시 그린다
   const names = S.lib.status_names, out = [];
   for (const st of ORDER) {
     if (S.filter !== 'all' && S.filter !== st) continue;
@@ -499,22 +514,42 @@ async function renderCompare() {
       </tbody></table></div>`;
 }
 /* ── 발행 ─────────────────────────────────── */
+// 게시 여부로 나눈다: 할 일(게시 전)이 위, 기록(게시함)은 접어 둔다. 탭 숫자는 게시 전 초안만.
+const isDone = x => Object.keys(x.published || {}).length > 0;
+const pubAt = x => Object.values(x.published || {}).sort().pop() || '';
+function splitPosts() {
+  const todo = S.posts.filter(x => !isDone(x)), done = S.posts.filter(isDone).sort((a, b) => pubAt(b).localeCompare(pubAt(a)));
+  return { todo, done };
+}
+function setPubCount() { $('#pub-n').textContent = S.posts.filter(x => !isDone(x)).length || ''; }
 async function loadPubCount() {
-  try { S.posts = await api('/api/posts'); $('#pub-n').textContent = S.posts.length || ''; } catch { /* 숫자만 못 보여 줌 */ }
+  try { S.posts = await api('/api/posts'); setPubCount(); } catch { /* 숫자만 못 보여 줌 */ }
 }
 async function loadPub() {
   try { S.posts = await api('/api/posts'); } catch (e) { $('#main').innerHTML = `<div class="empty"><h2>초안 목록을 불러오지 못했습니다</h2><p>${esc(e.message)}</p></div>`; return; }
-  $('#pub-n').textContent = S.posts.length || '';
+  setPubCount();
   if (S.post && !S.posts.some(x => x.slug === S.post)) S.post = null;
-  S.post = S.post || (S.posts[0] && S.posts[0].slug);
+  const { todo, done } = splitPosts();
+  S.post = S.post || ((todo[0] || done[0]) || {}).slug;
   S.postData = S.post ? await api(`/api/posts/${encodeURIComponent(S.post)}`).catch(() => null) : null;
   S.li = await api('/api/linkedin').catch(() => null);
   if (S.view === 'pub') renderPub();
 }
 function renderPub() {
-  const head = `<div class="pub-head"><h1 class="title" style="font-size:var(--fs-h2);margin:0">발행 초안</h1>
-    <p class="meta" style="margin:4px 0 0">정리된 논문을 열고 <b>글 초안 만들기</b>를 누르면 Claude 가 paper-post 스킬로 초안을 씁니다. 게시는 복사해서 직접 합니다.</p>
-    ${S.posts.length ? `<div class="pub-list">${S.posts.map(x => `<button class="btn" data-post="${esc(x.slug)}" aria-pressed="${x.slug === S.post}">${esc(x.title)}</button>`).join('')}</div>` : ''}</div>`;
+  const { todo, done } = splitPosts();
+  const row = x => `<button class="pub-row${isDone(x) ? ' is-done' : ''}" data-post="${esc(x.slug)}" aria-pressed="${x.slug === S.post}" title="${esc(x.title)}">
+      <span class="t">${esc(x.title)}</span>
+      <span class="m">${isDone(x) ? `<b>게시함</b> ${esc(pubAt(x).slice(0, 10))}` : esc(x.created || '')}</span></button>`;
+  const doneOpen = done.some(x => x.slug === S.post) || (S.pubDoneOpen ?? !todo.length);   // 고른 글이 안에 있으면 늘 펼침
+  const groups = S.posts.length ? `<div class="pub-groups">
+    <section class="pub-group"><h2 class="gh">게시 전 초안 ${todo.length}</h2>
+      ${todo.length ? `<div class="pub-rows">${todo.map(row).join('')}</div>` : '<p class="pub-none">게시할 초안이 없습니다. 모두 올렸습니다.</p>'}</section>
+    ${done.length ? `<details class="pub-group" id="pub-done"${doneOpen ? ' open' : ''}><summary class="gh">게시한 글 ${done.length}</summary>
+      <div class="pub-rows">${done.map(row).join('')}</div></details>` : ''}
+  </div>` : '';
+  const head = `<div class="pub-head"><h1 class="title" style="font-size:var(--fs-h2);margin:0">발행</h1>
+    <p class="meta" style="margin:4px 0 0">논문을 열고 <b>글 초안 만들기</b>를 누르면 Claude 가 초안을 씁니다. 확인한 뒤 <b>LinkedIn 에 게시</b>하거나 복사해서 올립니다.</p>
+    ${groups}</div>`;
   const d = S.postData;
   if (!d) { $('#main').innerHTML = head + `<div class="empty"><h2>아직 초안이 없습니다</h2><p>예: 서재에서 논문을 열고 <b>글 초안 만들기</b>, 또는 대화창에 <span class="ex">이 두 논문 엮어서 링크드인 글 써줘</span></p></div>`; return; }
   const kinds = [['linkedin', 'LinkedIn', d.linkedin], ['blog', '블로그 (마크다운)', d.blog], ['tistory', '티스토리 (HTML)', d.blog]].filter(k => k[2]);
@@ -770,6 +805,8 @@ function setView(v) {
 
 /* ── 이벤트 연결 ──────────────────────────── */
 document.addEventListener('click', async ev => {
+  const sum = ev.target.closest('#pub-done > summary');   // 사용자가 직접 접고 편 상태만 기억
+  if (sum) S.pubDoneOpen = !sum.parentElement.open;
   const t = ev.target.closest('button');
   if (!t || (!t.closest('.menu') && t.id !== 'new-chat')) $('.menu')?.remove();
   if (!t) return;
