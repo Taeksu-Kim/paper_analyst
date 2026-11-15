@@ -57,20 +57,17 @@ claude                                 # Claude Code 설치·로그인 (스킬�
 
 ## LinkedIn 게시 (선택)
 
-공식 API 만 쓴다 ("Share on LinkedIn" + "Sign In with LinkedIn using OpenID Connect"). 처음 한 번:
-1. LinkedIn 개발자 사이트에서 앱 만들기 — **LinkedIn 페이지 연결이 필수**다 (개인 프로필에만 올려도). 페이지 관리자가 연결을 승인한다
-2. 앱의 Products 에서 **Share on LinkedIn**, **Sign In with LinkedIn using OpenID Connect** 추가
-3. Auth 의 Redirect URL 에 `http://127.0.0.1:8768/api/linkedin/callback`
-4. **이 대화·화면 밖의 터미널**에서 `python -m paper_analyst.linkedin setup` → Client ID 와 Secret 입력 (Secret 은 화면에 안 보임).
-   `~/.config/side-projects/linkedin_app.json` (권한 600) 에 저장된다 — 저장소 밖이라 git 에도, 화면의 Claude 세션에도 닿지 않는다.
-   같은 앱을 다른 프로젝트도 쓸 수 있다 (같은 권한 범위로 연결하고, Redirect URL 만 프로젝트별로 추가). 위치는 `SIDE_PROJECTS_CONFIG` 로 변경
-5. 서버를 켜고 발행 탭 → **LinkedIn 연결** → 로그인·승인 → 토큰은 `~/.config/side-projects/tokens/paper_analyst-linkedin.json` (권한 600). 상태 확인: `python -m paper_analyst.linkedin status`
+발행 탭의 **LinkedIn 에 게시** 버튼으로 본인 프로필에 올린다 — 공식 API, 사람이 확인 창에서 누를 때만, 한 글은 한 번만.
+설정 없이도 **글자 복사**로 직접 붙여 넣을 수 있다.
 
-- 게시: 발행 탭의 LinkedIn 보기에서 **LinkedIn 에 게시** → 확인 창(계정·글자 수) → 게시. 점검 경고(개인 메모 겹침·길이 초과)가 남으면 잠기고,
-  미리보기 뒤 초안이 바뀌었으면 거부하며, 한 글은 한 번만 올린다. 게시 기록(글 링크·시각)은 초안의 `meta.json` 에
-- 액세스 토큰은 60일, 갱신 토큰은 일부 파트너에게만 주어진다 → 만료되면 다시 연결 (공식 문서, 2026-11-15 확인)
-- 화면의 Claude 세션에는 게시 권한이 없다 — 대화로 "올려줘"라고 해도 올라가지 않는다
-- 범위: 글자·링크만 (이미지 첨부는 업로드 절차가 따로 있어 아직 없음)
+처음 한 번 (약 15분) — **자세한 단계·문제 해결은 [docs/LINKEDIN.md](docs/LINKEDIN.md)**:
+1. 본인 LinkedIn 페이지 만들기 (개발자 앱은 개인 프로필이 아니라 페이지에 연결해야 한다 — 글은 개인 프로필로 올라감)
+2. 개발자 앱 만들기 → Verify → 제품 2개(Share on LinkedIn, Sign In with LinkedIn using OpenID Connect)
+3. Redirect URL `http://127.0.0.1:8768/api/linkedin/callback` 등록
+4. 별도 터미널에서 `python -m paper_analyst.linkedin setup` 으로 키 입력 (Secret 숨김, 저장소 밖 `~/.config/side-projects/` 에 저장)
+5. 화면(**http://127.0.0.1:8768**) 발행 탭 → **LinkedIn 연결** → **LinkedIn 에 게시**
+
+연결은 60일마다 다시 한다. 화면 속 AI 세션에는 게시 권한이 없다.
 
 ## import (엔진)
 
@@ -113,6 +110,7 @@ paper_analyst/
 ├── profiles/                # nlp.toml (예시) · active (git 제외) · *.private.md (git 제외)
 ├── lists/ · ideas/          # 읽을 목록 · 논문에서 나온 논의·설계안
 ├── docs/SOURCES.md          # 어느 소스를 언제 쓰나 + 측정 근거
+├── docs/LINKEDIN.md         # LinkedIn 연동 단계·문제 해결
 ├── tests/test_api.py        # 제품 API 진입점 테스트 (모델·네트워크만 가짜)
 ├── tools/browser_check.py   # 실제 브라우저 점검 (실제 서재 복사본 + 가짜 세션)
 ├── tools/screenshots.py     # README 캡처 (docs/images/)
