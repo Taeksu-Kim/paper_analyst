@@ -227,6 +227,14 @@ with sync_playwright() as p:
     page.click("button[data-st='']")
     page.wait_for_function("document.querySelector('#filters').innerText.includes('적용함 0')")
     check("상태: 되돌리기", True)
+    n_user = page.locator(".msg.user").count()
+    page.click("#reread")
+    check("다시 정리: 바로 보내지 않고 그 자리 확인 (설명·시작·취소)",
+          page.is_visible("#reread-box") and "사용량" in page.inner_text("#reread-box") and page.locator(".msg.user").count() == n_user
+          and page.evaluate("document.activeElement.id") == "reread-go")
+    page.click("#reread-cancel")
+    check("다시 정리: 취소하면 닫히고 버튼으로 포커스", not page.is_visible("#reread-box")
+          and page.evaluate("document.activeElement.id") == "reread" and page.locator(".msg.user").count() == n_user)
 
     # 후보함
     page.click("#tab-cand")
@@ -477,6 +485,16 @@ with sync_playwright() as p:
     page.wait_for_function("document.querySelector('#main h1')")
     check("키보드: Enter 로 열고, 다시 그려도 그 항목이 Tab 정지",
           page.evaluate("document.querySelector('#lib-list .item[tabindex=\"0\"]').dataset.key").endswith(want), want)
+
+    # 다시 정리: 시작을 누르면 그때 보낸다
+    page.click("#lib-list button[data-paper='2605.15184']")
+    page.wait_for_selector("#reread")
+    n_user = page.locator(".msg.user").count()
+    page.click("#reread"); page.click("#reread-go")
+    page.wait_for_function(f"document.querySelectorAll('.msg.user').length === {n_user + 1}")
+    check("다시 정리: 시작 → 대화로 요청, 확인 상자 닫힘", "다시 확인" in page.locator(".msg.user").last.inner_text() and not page.is_visible("#reread-box"))
+    page.wait_for_selector("#send:not([disabled])", timeout=15000)
+    page.keyboard.press("Escape")   # 보내면 좁은 화면용 대화 서랍이 열린 상태가 된다 — 아래 폭 점검 전에 닫는다
 
     # 폭 3종 + 다크
     for w, h in ((1280, 900), (768, 1024), (390, 844)):
