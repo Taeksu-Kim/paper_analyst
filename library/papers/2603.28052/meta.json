@@ -1,0 +1,33 @@
+{
+  "arxiv_id": "2603.28052",
+  "version": "v1",
+  "title": "Meta-Harness: End-to-End Optimization of Model Harnesses",
+  "authors": [
+    "Lee, Yoonho",
+    "Nair, Roshen",
+    "Zhang, Qizheng",
+    "Lee, Kangwook",
+    "Khattab, Omar",
+    "Finn, Chelsea"
+  ],
+  "published": "2026-03-30",
+  "updated": "2026-03-30",
+  "primary_category": "cs.AI",
+  "categories": [
+    "cs.AI"
+  ],
+  "abstract": "The performance of large language model (LLM) systems depends not only on model weights, but also on their harness: the code that determines what information to store, retrieve, and present to the model. Yet harnesses are still designed largely by hand, and existing text optimizers are poorly matched to this setting because they compress feedback too aggressively. We introduce Meta-Harness, an outer-loop system that searches over harness code for LLM applications. It uses an agentic proposer that accesses the source code, scores, and execution traces of all prior candidates through a filesystem. On online text classification, Meta-Harness improves over a state-of-the-art context management system by 7.7 points while using 4x fewer context tokens. On retrieval-augmented math reasoning, a single discovered harness improves accuracy on 200 IMO-level problems by 4.7 points on average across five held-out models. On agentic coding, discovered harnesses surpass the best hand-engineered baselines on TerminalBench-2. Together, these results show that richer access to prior experience can enable automated harness engineering.",
+  "abs_url": "https://arxiv.org/abs/2603.28052",
+  "meta_source": "abs 페이지 (API 실패: HTTP 429: https://export.arxiv.org/api/query?id_list=2603.28)",
+  "pdf_bytes": 1078140,
+  "fetched_at": "2026-11-14T05:04:21+00:00",
+  "parsed": {
+    "source": "arxiv_html",
+    "md_chars": 87594,
+    "images": 6,
+    "warnings": [
+      "파싱 안 된 수식 2개 (alttext 원문으로 둠)"
+    ],
+    "md": "parsed/paper.md"
+  }
+}

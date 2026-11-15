@@ -1,0 +1,40 @@
+{
+  "arxiv_id": "2602.08234",
+  "version": "v2",
+  "title": "SkillRL: Evolving Agents via Recursive Skill-Augmented Reinforcement Learning",
+  "authors": [
+    "Xia, Peng",
+    "Chen, Jianwen",
+    "Wang, Hanyang",
+    "Liu, Jiaqi",
+    "Zeng, Kaide",
+    "Wang, Yu",
+    "Han, Siwei",
+    "Zhou, Yiyang",
+    "Zhao, Xujiang",
+    "Chen, Haifeng",
+    "Zheng, Zeyu",
+    "Xie, Cihang",
+    "Yao, Huaxiu"
+  ],
+  "published": "2026-02-09",
+  "updated": "2026-02-09",
+  "primary_category": "cs.LG",
+  "categories": [
+    "cs.LG"
+  ],
+  "abstract": "Large Language Model (LLM) agents have shown stunning results in complex tasks, yet they often operate in isolation, failing to learn from past experiences. Existing memory-based methods primarily store raw trajectories, which are often redundant and noise-heavy. This prevents agents from extracting high-level, reusable behavioral patterns that are essential for generalization. In this paper, we propose SkillRL, a framework that bridges the gap between raw experience and policy improvement through automatic skill discovery and recursive evolution. Our approach introduces an experience-based distillation mechanism to build a hierarchical skill library SkillBank, an adaptive retrieval strategy for general and task-specific heuristics, and a recursive evolution mechanism that allows the skill library to co-evolve with the agent's policy during reinforcement learning. These innovations significantly reduce the token footprint while enhancing reasoning utility. Experimental results on ALFWorld, WebShop and seven search-augmented tasks demonstrate that SkillRL achieves state-of-the-art performance, outperforming strong baselines over 15.3% and maintaining robustness as task complexity increases. Code is available at this https://github.com/aiming-lab/SkillRL.",
+  "abs_url": "https://arxiv.org/abs/2602.08234",
+  "meta_source": "abs 페이지 (API 실패: HTTP 429: https://export.arxiv.org/api/query?id_list=2603.28)",
+  "pdf_bytes": 13170763,
+  "fetched_at": "2026-11-14T05:05:05+00:00",
+  "parsed": {
+    "source": "arxiv_html",
+    "md_chars": 96878,
+    "images": 6,
+    "warnings": [
+      "파싱 안 된 수식 4개 (alttext 원문으로 둠)"
+    ],
+    "md": "parsed/paper.md"
+  }
+}

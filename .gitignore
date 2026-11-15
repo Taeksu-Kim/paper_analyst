@@ -1,0 +1,17 @@
+# 논문 원문 — 재배포하지 않는다 (tools/fetch.py 로 다시 받는다)
+library/papers/*/paper.pdf
+library/papers/*/paper.html
+library/papers/*/parsed/
+library/papers/*/parsed.tmp/
+# 외부 신호 캐시 (tools/enrich.py 로 다시 만든다, 제3자 댓글 원문 포함)
+library/papers/*/external.json
+# 후보 수집 결과 (tools/discover.py 로 다시 만든다)
+library/candidates/
+# 개인 메모 — 업무·경력 연결, 큐레이터 목록 등
+*.private.md
+__pycache__/
+*.pyc
+.env
+profiles/active
+# 화면 상태 DB (대화·후보 판정)
+data/

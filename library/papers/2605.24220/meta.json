@@ -1,0 +1,40 @@
+{
+  "arxiv_id": "2605.24220",
+  "version": "v1",
+  "title": "Polar: Agentic RL on Any Harness at Scale",
+  "authors": [
+    "Xu, Binfeng",
+    "Zhang, Hao",
+    "Zhang, Shaokun",
+    "Han, Songyang",
+    "Liu, Mingjie",
+    "Hu, Jian",
+    "Diao, Shizhe",
+    "Jin, Zhenghui",
+    "Zou, Yunheng",
+    "Demoret, Michael",
+    "Kautz, Jan",
+    "Dong, Yi"
+  ],
+  "published": "2026-05-22",
+  "updated": "2026-05-22",
+  "primary_category": "cs.DC",
+  "categories": [
+    "cs.DC"
+  ],
+  "abstract": "Reinforcement learning for language agents increasingly depends on custom harnesses that manage long-running context, multi-turn tool use and multi-agent orchestration. However, porting these harnesses into RL environment interfaces remains difficult and often loses important training signals. We bridge this gap with polar, a rollout framework for scalable asynchronous RL over arbitrary agent harnesses. Polar treats the agent harness as a black box: it proxies LLM API calls, records token-level model interactions, and reconstructs token-faithful trajectories for training. Each rollout node efficiently manages runtime prewarming, agent execution, trajectory reconstruction, and evaluation in parallel, exposing asynchronous service endpoints that can be consumed by independent trainers at scale. This decoupled design makes Polar agnostic to agent harnesses, training infrastructure, and RL algorithms while improving compute utilization for long-running agent workloads. We validate polar by training agents on software-engineering tasks with popular coding harnesses. Using simple GRPO, polar improves Qwen3.5-4B by 22.6, 4.8, 0.6 and 6.2 points on SWE-Bench Verified with the Codex, Claude Code, Qwen Code and Pi harnesses, respectively. We further demonstrate Polar for offline data generation over custom harnesses and ablate trajectory reconstruction strategies. Polar rewrites its preceding work, Prorl Agent, and has been registered as one of NeMo Gym environments.",
+  "abs_url": "https://arxiv.org/abs/2605.24220",
+  "meta_source": "abs 페이지 (API 실패: HTTP 429: https://export.arxiv.org/api/query?id_list=2603.28)",
+  "pdf_bytes": 2185042,
+  "fetched_at": "2026-11-14T05:06:28+00:00",
+  "parsed": {
+    "source": "arxiv_html",
+    "md_chars": 48230,
+    "images": 7,
+    "warnings": [
+      "LaTeXML 변환 오류 표시 1곳 (.ltx_ERROR)",
+      "파싱 안 된 수식 2개 (alttext 원문으로 둠)"
+    ],
+    "md": "parsed/paper.md"
+  }
+}

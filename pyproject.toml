@@ -1,0 +1,12 @@
+[project]
+name = "paper_analyst"
+version = "0.1.0"
+description = "논문을 찾아 읽고, 외부 평가를 붙여 결론을 내는 Claude Code 스킬·도구와 화면"
+requires-python = ">=3.11"
+dependencies = ["beautifulsoup4>=4.12", "pymupdf>=1.24", "markdown>=3.5", "fastapi>=0.110", "uvicorn>=0.29"]
+
+[tool.setuptools]
+packages = ["paper_analyst"]
+
+[tool.setuptools.package-data]
+paper_analyst = ["static/*"]

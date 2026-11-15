@@ -1,0 +1,6 @@
+beautifulsoup4>=4.12
+pymupdf>=1.24      # arXiv HTML 의 SVG 그림을 PNG 로 렌더링 (없으면 SVG 그림만 빠짐)
+markdown>=3.5      # 화면에서 notes 를 HTML 로
+fastapi>=0.110
+uvicorn>=0.29
+# 선택: PDF 경로(--via pdf, HTML 없는 논문)는 별도 PDF→마크다운 도구 doc_parser 를 `python -m doc_parser` 로 호출한다 (이 저장소에 없음)

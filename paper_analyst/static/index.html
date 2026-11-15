@@ -1,0 +1,609 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>paper_analyst</title>
+<link rel="icon" href="data:,">
+<style>
+:root {
+  --bg: #f6f6f3; --panel: #ffffff; --panel-2: #efefea; --line: #dcdcd4; --line-strong: #c4c4ba;
+  --text: #1d1d1b; --text-2: #5b5b55; --text-3: #6f6f68;
+  --accent: #2f5d8a; --accent-ink: #ffffff; --accent-soft: #e4ecf4;
+  --concl-bg: #f3efe2; --concl-line: #ddd3b5; --concl-label: #6e5a1c;
+  --ok: #2e6b3f; --warn: #8a5a12; --err: #a3322b; --err-soft: #f8e6e4;
+  --radius: 6px; --radius-lg: 10px;
+  --fs-cap: .75rem; --fs-label: .8125rem; --fs-body: .9375rem; --fs-h3: 1rem; --fs-h2: 1.1875rem; --fs-h1: 1.375rem;
+  --font: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161715; --panel: #1e1f1d; --panel-2: #262724; --line: #33342f; --line-strong: #474840;
+    --text: #e9e8e2; --text-2: #b0afa6; --text-3: #95948b;
+    --accent: #8db4dc; --accent-ink: #10202f; --accent-soft: #22303d;
+    --concl-bg: #2a2719; --concl-line: #4a4227; --concl-label: #d9c27a;
+    --ok: #7fc08f; --warn: #e0b36a; --err: #ec8a80; --err-soft: #3a2220;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { font: var(--fs-body)/1.6 var(--font); color: var(--text); background: var(--bg); word-break: keep-all; overflow-wrap: anywhere; }
+button, input, select, textarea { font: inherit; color: inherit; }
+::selection { background: var(--accent-soft); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+a { color: var(--accent); }
+
+/* 셸 */
+.top { height: 48px; display: flex; align-items: center; gap: 16px; padding: 0 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.brand { font-weight: 700; letter-spacing: -.01em; }
+.chip { font-size: var(--fs-cap); color: var(--text-2); border: 1px solid var(--line); border-radius: 999px; padding: 1px 9px; white-space: nowrap; }
+.tabs { display: flex; gap: 4px; margin-left: 8px; }
+.tab { border: 0; background: none; padding: 6px 12px; border-radius: var(--radius); cursor: pointer; color: var(--text-2); font-weight: 600; }
+.tab:hover { background: var(--panel-2); color: var(--text); }
+.tab[aria-selected="true"] { background: var(--accent-soft); color: var(--accent); }
+.tab .n { font-weight: 400; font-variant-numeric: tabular-nums; margin-left: 4px; }
+.spacer { flex: 1; }
+.btn.chat-toggle { display: none; }
+.brand, .tab, .chip { white-space: nowrap; }
+
+.shell { display: grid; grid-template-columns: 300px minmax(0, 1fr) 400px; height: calc(100% - 48px); }
+.col { min-height: 0; display: flex; flex-direction: column; }
+.col + .col { border-left: 1px solid var(--line); }
+.scroll { overflow-y: auto; min-height: 0; flex: 1; }
+
+/* 버튼 */
+.btn { border: 1px solid var(--line-strong); background: var(--panel); border-radius: var(--radius); padding: 5px 11px; cursor: pointer; font-size: var(--fs-label); font-weight: 600; white-space: nowrap; text-decoration: none; display: inline-block; }
+.btn:hover:not(:disabled) { background: var(--panel-2); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover:not(:disabled) { filter: brightness(1.08); background: var(--accent); }
+.btn.quiet { border-color: transparent; background: none; color: var(--text-2); }
+.btn.quiet:hover:not(:disabled) { background: var(--panel-2); color: var(--text); }
+.btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+/* 서재 */
+.lib-head { padding: 12px; display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.search { width: 100%; padding: 6px 10px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--panel); }
+.filters { display: flex; flex-wrap: wrap; gap: 4px; }
+.filters .btn { padding: 2px 8px; font-weight: 500; font-size: var(--fs-cap); }
+.group { padding: 10px 12px 2px; font-size: var(--fs-cap); color: var(--text-3); font-weight: 700; display: flex; justify-content: space-between; }
+.item { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 8px 12px; cursor: pointer; border-radius: 0; }
+.item:hover { background: var(--panel-2); }
+.item[aria-current="true"] { background: var(--accent-soft); }
+.item > span { display: block; }
+.item .t { font-weight: 600; font-size: var(--fs-label); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.item .m { font-size: var(--fs-cap); color: var(--text-3); font-variant-numeric: tabular-nums; }
+.item .c { font-size: var(--fs-cap); color: var(--text-2); margin-top: 2px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.new { font-size: 10px; font-weight: 700; color: var(--accent); margin-left: 4px; }
+.lock { font-size: 10px; color: var(--text-3); border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; margin-left: 4px; font-weight: 500; }
+
+/* 가운데 */
+.main { background: var(--panel); }
+.doc { max-width: 820px; margin: 0 auto; padding: 24px 32px 64px; }
+.doc h1.title { font-size: var(--fs-h1); line-height: 1.35; margin: 0 0 6px; text-wrap: balance; }
+.meta { color: var(--text-2); font-size: var(--fs-label); font-variant-numeric: tabular-nums; }
+.bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 14px 0 18px; }
+.bar .lbl { font-size: var(--fs-cap); color: var(--text-3); margin-right: 2px; }
+.sep { width: 1px; height: 20px; background: var(--line); margin: 0 6px; }
+.concl { background: var(--concl-bg); border: 1px solid var(--concl-line); border-radius: var(--radius-lg); padding: 12px 16px; margin: 0 0 14px; display: block; width: 100%; text-align: left; }
+button.concl { cursor: pointer; }
+button.concl:hover { border-color: var(--concl-label); }
+.concl .k { font-size: var(--fs-cap); font-weight: 700; color: var(--concl-label); display: block; margin-bottom: 2px; }
+.concl .v { margin: 0; font-weight: 600; line-height: 1.55; display: block; }
+.md { line-height: 1.7; }
+.md h1 { font-size: var(--fs-h2); } .md h2 { font-size: var(--fs-h2); margin-top: 28px; padding-top: 12px; border-top: 1px solid var(--line); }
+.md h3 { font-size: var(--fs-h3); margin-top: 20px; }
+.md table { border-collapse: collapse; width: 100%; font-size: var(--fs-label); margin: 10px 0; display: block; overflow-x: auto; }
+.md th, .md td { border: 1px solid var(--line); padding: 5px 8px; vertical-align: top; text-align: left; }
+.md th { background: var(--panel-2); }
+.md code { font-family: var(--mono); font-size: .85em; background: var(--panel-2); padding: 1px 4px; border-radius: 3px; }
+.md pre { background: var(--panel-2); padding: 10px; border-radius: var(--radius); overflow-x: auto; }
+.md pre code { background: none; padding: 0; }
+.md blockquote { margin: 8px 0; padding: 4px 12px; color: var(--text-2); border-left: 2px solid var(--line-strong); }
+details.private { margin-top: 28px; border: 1px dashed var(--line-strong); border-radius: var(--radius-lg); padding: 8px 14px; }
+details.private summary { cursor: pointer; font-weight: 600; font-size: var(--fs-label); color: var(--text-2); }
+.empty { color: var(--text-2); padding: 48px 32px; max-width: 560px; margin: 0 auto; }
+.empty h2 { font-size: var(--fs-h2); color: var(--text); margin: 0 0 8px; }
+.ex { font-family: var(--mono); font-size: var(--fs-label); background: var(--panel-2); padding: 2px 6px; border-radius: 3px; }
+.abstract { color: var(--text-2); }
+.skeleton { height: 14px; background: var(--panel-2); border-radius: 4px; margin: 10px 0; animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .5; } }
+@media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
+
+/* 후보함 */
+.cand-head { position: sticky; top: 0; background: var(--panel); border-bottom: 1px solid var(--line); padding: 12px 24px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; z-index: 1; }
+.cand-head .hint { color: var(--text-3); font-size: var(--fs-cap); margin-left: auto; }
+.cand { border-bottom: 1px solid var(--line); padding: 12px 24px; }
+.cand .row { display: flex; gap: 12px; align-items: flex-start; }
+.cand .info { flex: 1; min-width: 0; }
+.cand button.t { border: 0; background: none; padding: 0; text-align: left; cursor: pointer; font-weight: 600; line-height: 1.4; }
+.cand button.t:hover { color: var(--accent); }
+.sig { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; font-size: var(--fs-cap); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.sig .hit { color: var(--accent); font-weight: 700; }
+.cand .acts { display: flex; gap: 4px; flex-shrink: 0; align-items: center; }
+.cand .abstract { margin-top: 8px; font-size: var(--fs-label); line-height: 1.65; }
+
+/* 대화 */
+.chat { background: var(--bg); }
+.chat-head { padding: 10px 12px; display: flex; gap: 6px; align-items: center; border-bottom: 1px solid var(--line); background: var(--panel); }
+.chat-head select { flex: 1; min-width: 0; padding: 5px 8px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--panel); }
+.menu { position: fixed; z-index: 10; background: var(--panel); border: 1px solid var(--line-strong); border-radius: var(--radius-lg); box-shadow: 0 8px 28px rgba(0,0,0,.14); padding: 6px; width: 300px; }
+.menu button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 8px 10px; border-radius: var(--radius); cursor: pointer; }
+.menu button:hover:not(:disabled) { background: var(--panel-2); }
+.menu button:disabled { cursor: not-allowed; }
+.menu .n, .menu .d { display: block; }
+.menu .d { font-size: var(--fs-cap); color: var(--text-2); line-height: 1.45; }
+.menu button:disabled .n { color: var(--text-3); }
+.sess { font-size: var(--fs-cap); color: var(--text-2); padding: 6px 12px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.sess:empty { display: none; }
+.sess b { color: var(--text); }
+.msgs { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.msg { max-width: 100%; line-height: 1.6; }
+.msg.user { align-self: flex-end; background: var(--accent-soft); padding: 8px 12px; border-radius: var(--radius-lg); max-width: 88%; white-space: pre-wrap; }
+.msg.user .ctx { display: block; font-size: var(--fs-cap); color: var(--text-2); margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.msg.bot { background: var(--panel); border: 1px solid var(--line); padding: 8px 12px; border-radius: var(--radius-lg); }
+.msg.bot p { margin: 0 0 6px; } .msg.bot p:last-child { margin: 0; }
+.msg.bot ul { margin: 4px 0; padding-left: 18px; }
+.msg.bot code { font-family: var(--mono); font-size: .85em; background: var(--panel-2); padding: 0 3px; border-radius: 3px; }
+.tool { font-size: var(--fs-cap); color: var(--text-2); display: flex; gap: 6px; align-items: baseline; padding: 0 4px; }
+.tool .nm { font-weight: 700; color: var(--text); flex-shrink: 0; }
+.tool .s { font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.tool .st { flex-shrink: 0; margin-left: auto; }
+.tool .st.run { color: var(--warn); } .tool .st.ok { color: var(--ok); } .tool .st.bad { color: var(--err); }
+.tool-err { font-size: var(--fs-cap); color: var(--err); background: var(--err-soft); padding: 4px 8px; border-radius: var(--radius); margin: -4px 4px 0; white-space: pre-wrap; }
+.endline { font-size: var(--fs-cap); color: var(--text-3); text-align: center; }
+.endline.bad { color: var(--err); }
+.composer { border-top: 1px solid var(--line); background: var(--panel); padding: 10px 12px; }
+.attach { display: flex; align-items: center; gap: 6px; font-size: var(--fs-cap); color: var(--text-2); margin-bottom: 6px; min-height: 24px; }
+.attach .chip { color: var(--text); min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.attach .lbl { white-space: nowrap; }
+.composer textarea { width: 100%; resize: none; border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 8px 10px; min-height: 64px; max-height: 200px; background: var(--panel); line-height: 1.5; }
+.composer textarea:disabled { background: var(--panel-2); }
+.composer .row { display: flex; gap: 6px; justify-content: flex-end; margin-top: 6px; align-items: center; }
+.composer .row .note { margin-right: auto; font-size: var(--fs-cap); color: var(--text-3); }
+.notice { padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: var(--radius-lg); background: var(--panel); font-size: var(--fs-label); color: var(--text-2); }
+.notice b { color: var(--text); }
+.toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 8px 14px; border-radius: var(--radius); font-size: var(--fs-label); z-index: 20; opacity: 0; transition: opacity .2s; pointer-events: none; }
+.toast.on { opacity: 1; }
+
+@media (max-width: 1180px) {
+  .shell { grid-template-columns: 260px minmax(0, 1fr); }
+  .chat { position: fixed; right: 0; top: 48px; bottom: 0; width: min(420px, 100%); z-index: 5; border-left: 1px solid var(--line); box-shadow: -8px 0 24px rgba(0,0,0,.08); transform: translateX(100%); visibility: hidden; transition: transform .2s, visibility 0s .2s; }
+  body.chat-open .chat { transform: none; visibility: visible; transition: transform .2s; }
+  .btn.chat-toggle { display: inline-block; }
+}
+@media (max-width: 760px) {
+  .shell { grid-template-columns: 1fr; }
+  .lib { display: none; } body.show-lib .lib { display: flex; } body.show-lib .main { display: none; }
+  .doc { padding: 16px; } .cand { padding: 12px 16px; } .cand .row { flex-direction: column; }
+  .top { gap: 6px; padding: 0 10px; } .top .chip.profile { display: none; } .brand { font-size: var(--fs-label); } .tabs { margin-left: 0; } .tab { padding: 6px 8px; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <span class="brand">paper_analyst</span>
+  <span class="chip profile" id="profile" title="현재 프로필">프로필 확인 중…</span>
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" id="tab-lib" aria-selected="true">서재</button>
+    <button class="tab" role="tab" id="tab-cand" aria-selected="false">후보함<span class="n" id="cand-n"></span></button>
+  </nav>
+  <span class="spacer"></span>
+  <button class="btn quiet" id="lib-toggle" style="display:none">목록</button>
+  <button class="btn chat-toggle" id="chat-toggle">대화</button>
+</header>
+
+<div class="shell">
+  <aside class="col lib" aria-label="서재">
+    <div class="lib-head">
+      <input class="search" id="q" type="search" placeholder="제목·결론·arXiv id 검색" aria-label="서재 검색">
+      <div class="filters" id="filters"></div>
+    </div>
+    <div class="scroll" id="lib-list"></div>
+  </aside>
+
+  <main class="col main"><div class="scroll" id="main"></div></main>
+
+  <section class="col chat" aria-label="대화">
+    <div class="chat-head">
+      <select id="chat-sel" aria-label="대화 고르기"></select>
+      <button class="btn" id="new-chat" aria-haspopup="menu">새 대화</button>
+    </div>
+    <div class="sess" id="sess"></div>
+    <div class="scroll" id="msgs-wrap"><div class="msgs" id="msgs"></div></div>
+    <div class="composer">
+      <div class="attach" id="attach"></div>
+      <textarea id="input" placeholder="예: 10~11월 에이전트 논문 후보 찾아줘 / 이 논문 정리해줘" aria-label="메시지"></textarea>
+      <div class="row">
+        <span class="note">Enter 보내기 · Shift+Enter 줄바꿈</span>
+        <button class="btn" id="stop" style="display:none">중지</button>
+        <button class="btn primary" id="send">보내기</button>
+      </div>
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function api(path, opt = {}) {
+  const r = await fetch(path, { method: opt.method || 'GET', headers: { 'Content-Type': 'application/json' },
+    body: opt.body !== undefined ? JSON.stringify(opt.body) : undefined });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(data.detail || `요청 실패 (${r.status})`), { status: r.status });
+  return data;
+}
+function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => el.classList.remove('on'), 2600); }
+const fmtDate = s => (s || '').slice(0, 10);
+const fmtN = n => Number(n || 0).toLocaleString('ko-KR');
+
+const S = {
+  view: 'lib', lib: null, sel: null, filter: 'all', q: '', seen: null, fresh: new Set(),
+  cand: null, candView: 'signal', openAbs: new Set(), abs: {},
+  backends: [], chats: [], chatId: null, es: null, running: false, attach: true, tools: {},
+};
+const ORDER = ['to_read', 'noted', 'applied', 'fetched', 'hold'];
+
+/* ── 서재 ─────────────────────────────────── */
+async function loadLib(markFresh = false) {
+  const lib = await api('/api/library');
+  if (markFresh && S.seen) {
+    for (const p of lib.papers) {
+      const old = S.seen[p.id];
+      if (old === undefined || (p.noted_at && p.noted_at !== old)) S.fresh.add(p.id);
+    }
+  }
+  S.seen = Object.fromEntries(lib.papers.map(p => [p.id, p.noted_at]));
+  S.lib = lib;
+  renderFilters(); renderLib(); renderAttach();
+  if (markFresh && S.view === 'lib') {
+    if (S.sel && S.sel.kind === 'paper') showPaper(S.sel.id, true); else if (!S.sel) welcome();
+  }
+}
+function renderFilters() {
+  const c = S.lib.counts, names = S.lib.status_names;
+  const opts = [['all', '전체', S.lib.papers.length], ...ORDER.map(k => [k, names[k], c[k]])];
+  $('#filters').innerHTML = opts.map(([k, n, v]) =>
+    `<button class="btn" data-f="${k}" aria-pressed="${S.filter === k}">${esc(n)} ${v}</button>`).join('');
+}
+function matches(p) {
+  if (S.filter !== 'all' && p.status !== S.filter) return false;
+  if (!S.q) return true;
+  return (p.title + ' ' + p.id + ' ' + (p.conclusion || '')).toLowerCase().includes(S.q.toLowerCase());
+}
+function renderLib() {
+  const names = S.lib.status_names, out = [];
+  for (const st of ORDER) {
+    if (S.filter !== 'all' && S.filter !== st) continue;
+    const ps = S.lib.papers.filter(p => p.status === st && matches(p))
+      .sort((a, b) => (b.noted_at || 0) - (a.noted_at || 0) || b.id.localeCompare(a.id));
+    if (!ps.length) continue;
+    out.push(`<div class="group"><span>${esc(names[st])}</span><span>${ps.length}</span></div>`);
+    for (const p of ps) {
+      const cur = S.sel && S.sel.kind === 'paper' && S.sel.id === p.id;
+      out.push(`<button class="item" data-paper="${esc(p.id)}" aria-current="${cur}">
+        <span class="t">${esc(p.title)}${S.fresh.has(p.id) ? '<span class="new">새로 정리됨</span>' : ''}</span>
+        <span class="m">${esc(p.id)}${p.published ? ' · ' + esc(fmtDate(p.published)) : ''}${p.has_private ? '<span class="lock">개인 메모</span>' : ''}</span>
+        ${p.conclusion ? `<span class="c">${esc(p.conclusion)}</span>` : ''}</button>`);
+    }
+  }
+  if (S.filter === 'all') {
+    const q = S.q.toLowerCase();
+    const docs = S.lib.docs.filter(d => !q || (d.title + d.name).toLowerCase().includes(q));
+    for (const [kind, label] of [['lists', '목록'], ['ideas', '아이디어']]) {
+      const ds = docs.filter(d => d.kind === kind);
+      if (!ds.length) continue;
+      out.push(`<div class="group"><span>${label}</span><span>${ds.length}</span></div>`);
+      for (const d of ds) {
+        const cur = S.sel && S.sel.kind === 'doc' && S.sel.name === d.name;
+        out.push(`<button class="item" data-doc="${esc(d.kind)}/${esc(d.name)}" aria-current="${cur}">
+          <span class="t">${esc(d.title)}</span>
+          <span class="m">${esc(d.name.replace('.private', ''))}${d.has_private ? `<span class="lock">${d.private_only ? '비공개' : '개인 메모'}</span>` : ''}</span></button>`);
+      }
+    }
+  }
+  $('#lib-list').innerHTML = out.join('') || (S.lib.papers.length || S.lib.docs.length
+    ? `<div class="empty"><p>“${esc(S.q)}”에 맞는 항목이 없습니다.</p></div>`
+    : `<div class="empty"><h2>서재가 비어 있습니다</h2><p>오른쪽 대화창에서 <span class="ex">2603.28052 정리해줘</span>처럼 시키면 정리된 논문이 여기에 쌓입니다.</p></div>`);
+}
+
+async function showPaper(id, quiet = false) {
+  S.sel = { kind: 'paper', id }; S.fresh.delete(id);
+  if (!quiet) $('#main').innerHTML = `<div class="doc"><div class="skeleton" style="width:60%;height:24px"></div><div class="skeleton"></div><div class="skeleton" style="width:80%"></div></div>`;
+  renderLib(); renderAttach(); document.body.classList.remove('show-lib');
+  let p;
+  try { p = await api(`/api/papers/${encodeURIComponent(id)}`); }
+  catch (e) { $('#main').innerHTML = `<div class="empty"><h2>논문을 열지 못했습니다</h2><p>${esc(e.message)}</p></div>`; return; }
+  if (!(S.sel && S.sel.id === id) || S.view !== 'lib') return;
+  const names = S.lib.status_names;
+  const manual = ['applied', 'hold'].includes(p.status) ? p.status : null;
+  const auto = p.has_notes ? 'noted' : (p.status === 'to_read' ? 'to_read' : 'fetched');
+  const stBtns = [['applied', '적용함'], ['hold', '보류']].map(([k, n]) =>
+    `<button class="btn" data-st="${k}" aria-pressed="${manual === k}">${n}</button>`).join('')
+    + (manual ? `<button class="btn quiet" data-st="">되돌리기</button>` : '');
+  const ask = p.has_notes
+    ? `<button class="btn" data-ask="이 논문 notes 를 다시 확인하고, 빠진 외부 평가가 있으면 보강해줘">다시 정리 시키기</button>`
+    : `<button class="btn primary" data-ask="이 논문 paper-read 로 정리해줘">Claude 에게 정리 시키기</button>`;
+  p.authors = (p.authors || []).filter(a => /[A-Za-z가-힣]{2}/.test(a));
+  const authors = p.authors && p.authors.length ? ' · ' + esc(p.authors.slice(0, 3).join(', ')) + (p.authors.length > 3 ? ` 외 ${p.authors.length - 3}명` : '') : '';
+  $('#main').innerHTML = `<article class="doc">
+    <h1 class="title">${esc(p.title)}</h1>
+    <div class="meta">arXiv ${esc(p.id)}${p.published ? ' · 발표 ' + esc(fmtDate(p.published)) : ''}${p.category ? ' · ' + esc(p.category) : ''}${authors}</div>
+    <div class="bar">
+      <span class="lbl">상태</span><span class="chip">${esc(names[manual || auto])}</span>${stBtns}
+      <span class="sep"></span>${ask}
+      <a class="btn quiet" href="${esc(p.abs_url)}" target="_blank" rel="noopener">arXiv 열기</a>
+    </div>
+    ${p.conclusion ? `<div class="concl"><span class="k">결론</span><span class="v">${esc(p.conclusion)}</span></div>` : ''}
+    ${p.notes_html ? `<div class="md" id="notes">${p.notes_html}</div>`
+      : `<div class="empty" style="padding:8px 0"><h2>아직 정리되지 않았습니다</h2>
+         ${p.abstract ? `<p><b>초록</b><br><span class="abstract">${esc(p.abstract)}</span></p>` : ''}
+         <p><b>Claude 에게 정리 시키기</b>를 누르면 대화창으로 요청이 가고, 정리가 끝나면 이 자리에 notes 가 나타납니다.</p></div>`}
+    ${p.private_html ? `<details class="private"><summary>개인 메모 (비공개 — notes.private.md, git 제외)</summary><div class="md">${p.private_html}</div></details>` : ''}
+  </article>`;
+  dedupe($('#notes'), p);
+}
+function dedupe(md, p) {   // 위에 이미 보인 제목·결론 문장은 notes 본문에서 뺀다
+  if (!md) return;
+  const norm = s => (s || '').replace(/\s+/g, ' ').trim();
+  const h1 = md.querySelector(':scope > h1:first-child');
+  if (h1 && norm(h1.textContent) === norm(p.title)) h1.remove();
+  const h2 = [...md.querySelectorAll(':scope > h2')].find(h => norm(h.textContent).startsWith('결론'));
+  const first = h2 && h2.nextElementSibling;
+  if (first && first.tagName === 'P' && norm(first.textContent) === norm(p.conclusion)) {
+    first.remove();
+    const next = h2.nextElementSibling;
+    if (!next || next.tagName === 'H2') h2.remove();   // 판정 문장만 있던 절이면 빈 제목도 뺀다
+  }
+}
+async function showDoc(kind, name) {
+  S.sel = { kind: 'doc', name }; renderLib(); renderAttach(); document.body.classList.remove('show-lib');
+  try {
+    const d = await api(`/api/docs/${kind}/${encodeURIComponent(name)}`);
+    $('#main').innerHTML = `<article class="doc"><div class="meta">${kind === 'lists' ? '목록' : '아이디어'} · ${esc(name)}</div>
+      <div class="md">${d.html}</div>
+      ${d.private_html ? `<details class="private"><summary>개인 메모 (비공개)</summary><div class="md">${d.private_html}</div></details>` : ''}</article>`;
+  } catch (e) { $('#main').innerHTML = `<div class="empty"><h2>문서를 열지 못했습니다</h2><p>${esc(e.message)}</p></div>`; }
+}
+function welcome() {
+  S.sel = null; renderLib(); renderAttach();
+  const noted = S.lib.papers.filter(p => p.conclusion).sort((a, b) => b.noted_at - a.noted_at);
+  $('#main').innerHTML = `<div class="doc"><h1 class="title">최근 정리된 결론</h1>
+    <p class="meta" style="margin-bottom:16px">왼쪽에서 논문을 고르거나, 오른쪽 대화창에서 Claude 에게 찾기·정리를 시키세요.</p>
+    ${noted.slice(0, 10).map(p => `<button class="concl" data-paper="${esc(p.id)}"><span class="k">${esc(p.title)}</span><span class="v">${esc(p.conclusion)}</span></button>`).join('')
+      || '<p class="abstract">아직 정리된 논문이 없습니다.</p>'}</div>`;
+}
+
+/* ── 후보함 ───────────────────────────────── */
+async function loadCand() {
+  try { S.cand = await api(`/api/candidates?view=${S.candView}`); }
+  catch (e) { if (S.view === 'cand') $('#main').innerHTML = `<div class="empty"><h2>후보를 불러오지 못했습니다</h2><p>${esc(e.message)}</p></div>`; return; }
+  $('#cand-n').textContent = S.cand.counts.signal || '';
+  if (S.view === 'cand') renderCand();
+}
+function renderCand() {
+  const c = S.cand, dn = { read: '읽기', hold: '보류', exclude: '제외' };
+  const head = `<div class="cand-head">
+    ${[['signal', '신호 통과', c.counts.signal], ['all', '미판정 전체', c.counts.all], ['decided', '판정함', c.counts.decided]]
+      .map(([k, n, v]) => `<button class="btn" data-cv="${k}" aria-pressed="${S.candView === k}">${n} ${fmtN(v)}</button>`).join('')}
+    <span class="hint">신호는 합산하지 않습니다 · 기준을 하나라도 넘으면 “신호 통과”</span></div>`;
+  if (!c.items.length) {
+    $('#main').innerHTML = head + `<div class="empty"><h2>${S.candView === 'decided' ? '판정한 후보가 없습니다' : '판정할 후보가 없습니다'}</h2>
+      <p>대화창에서 <span class="ex">2026년 10~11월 후보 찾아줘</span>처럼 시키면 Claude 가 후보를 모아 여기에 넣습니다.</p></div>`;
+    return;
+  }
+  $('#main').innerHTML = head + c.items.map(x => {
+    const sig = [['stars', x.stars, '★'], ['hn', x.hn, 'HN'], ['cit', x.cit, '인용']]
+      .filter(([, v]) => v).map(([k, v, l]) => `<span class="${x.signals.includes(k) ? 'hit' : ''}">${l} ${fmtN(v)}</span>`);
+    if (x.upvotes) sig.push(`<span>up ${fmtN(x.upvotes)}</span>`);
+    const open = S.openAbs.has(x.id);
+    return `<div class="cand"><div class="row"><div class="info">
+      <button class="t" data-abs="${esc(x.id)}" aria-expanded="${open}">${esc(x.title || x.id)}</button>
+      <div class="sig"><span>${esc(x.id)}</span>${sig.join('')}<span>출처 ${esc(x.src.join(', '))}</span></div>
+      ${open ? `<div class="abstract">${S.abs[x.id] === undefined ? '초록 가져오는 중…' : esc(S.abs[x.id] || '초록을 가져오지 못했습니다 (HF·arXiv 응답 없음).')}</div>` : ''}
+      </div><div class="acts">
+      ${S.candView === 'decided'
+        ? `<span class="chip">${dn[x.decision]}</span><button class="btn quiet" data-dec="" data-id="${esc(x.id)}">되돌리기</button>`
+        : `<button class="btn primary" data-dec="read" data-id="${esc(x.id)}">읽기</button><button class="btn" data-dec="hold" data-id="${esc(x.id)}">보류</button><button class="btn quiet" data-dec="exclude" data-id="${esc(x.id)}">제외</button>`}
+      </div></div></div>`;
+  }).join('');
+}
+
+/* ── 대화 ─────────────────────────────────── */
+const bname = n => (S.backends.find(b => b.name === n) || { label: n }).label;
+async function loadStatus() {
+  const st = await api('/api/status');
+  S.backends = st.backends;
+  $('#profile').textContent = st.profile.name ? `프로필 ${st.profile.name}` : '프로필 없음';
+  $('#profile').title = st.profile.name ? (st.profile.description || '') : (st.profile.error || '');
+}
+async function loadChats(selectId) {
+  S.chats = await api('/api/chats');
+  const sel = $('#chat-sel');
+  sel.innerHTML = S.chats.length
+    ? S.chats.map(c => `<option value="${c.id}">${esc(c.title)} · ${esc(bname(c.backend))}${c.running ? ' (답하는 중)' : ''}</option>`).join('')
+    : '<option value="">대화 없음</option>';
+  const id = selectId ?? S.chatId ?? (S.chats[0] && S.chats[0].id);
+  if (id) { sel.value = id; if (Number(id) !== S.chatId) openChat(id); } else renderSess();
+}
+function renderSess() {
+  const c = S.chats.find(x => x.id === S.chatId);
+  const b = c && S.backends.find(x => x.name === c.backend);
+  $('#locked')?.remove();
+  if (!c) {
+    $('#sess').innerHTML = '';
+    $('#msgs').innerHTML = `<div class="notice"><b>새 대화</b>로 시작하세요. 세션은 둘 중 하나를 고릅니다.<br>
+      · <b>Claude Code</b> — 저장소 스킬(paper-find·paper-read·paper-setup)로 찾고 읽고 정리합니다. 대화 내용이 Anthropic 으로 전송됩니다.<br>
+      · <b>로컬 LLM</b> — 이 컴퓨터의 Qwen 으로 서재 조회·제목 찾기·받기만 합니다. 정리는 하지 않습니다.</div>`;
+    setComposer(false); return;
+  }
+  $('#sess').innerHTML = `세션 <b>${esc(bname(c.backend))}</b>${c.backend === 'claude' ? ' · 내용이 Anthropic 으로 전송됨' : ' · 이 컴퓨터 안에서만'}`
+    + (b && !b.available ? ` · <span style="color:var(--err)">지금 쓸 수 없음</span>` : '');
+  const ok = !b || b.available;
+  setComposer(ok);
+  if (!ok) $('#msgs').insertAdjacentHTML('beforeend', `<div class="notice" id="locked">${esc(b.how)}</div>`);
+}
+function setComposer(on) {
+  $('#input').disabled = !on || S.running; $('#send').disabled = !on || S.running;
+  $('#stop').style.display = S.running ? '' : 'none';
+}
+function renderAttach() {
+  const p = S.sel && S.sel.kind === 'paper' && S.lib && S.lib.papers.find(x => x.id === S.sel.id);
+  $('#attach').innerHTML = p
+    ? (S.attach ? `<span class="lbl">함께 보낼 논문</span><span class="chip" title="${esc(p.title)}">${esc(p.title)}</span><button class="btn quiet" id="detach">빼기</button>`
+                : `<button class="btn quiet" id="reattach">보고 있는 논문 붙이기</button>`) : '';
+}
+function openChat(id) {
+  if (S.es) S.es.close();
+  S.chatId = Number(id); S.tools = {};
+  S.running = !!(S.chats.find(c => c.id === S.chatId) || {}).running;
+  $('#msgs').innerHTML = ''; renderSess();
+  S.es = new EventSource(`/api/chats/${S.chatId}/stream?after=0`);
+  S.es.onmessage = m => onEvent(JSON.parse(m.data));
+}
+function mdLite(t) {
+  const lines = esc(t).split('\n'); let html = '', list = false;
+  for (const l of lines) {
+    const li = l.match(/^\s*[-*] (.*)/);
+    if (li) { if (!list) { html += '<ul>'; list = true; } html += `<li>${li[1]}</li>`; continue; }
+    if (list) { html += '</ul>'; list = false; }
+    if (l.trim()) html += `<p>${l}</p>`;
+  }
+  if (list) html += '</ul>';
+  return html.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>');
+}
+function onEvent(e) {
+  const box = $('#msgs'), d = e.data, wrap = $('#msgs-wrap');
+  const atBottom = wrap.scrollHeight - wrap.scrollTop - wrap.clientHeight < 80;
+  const add = h => { const l = $('#locked'); l ? l.insertAdjacentHTML('beforebegin', h) : box.insertAdjacentHTML('beforeend', h); };
+  if (e.type === 'user') {
+    S.running = true; setComposer(true);
+    add(`<div class="msg user">${d.paper ? `<span class="ctx">${esc(d.paper.title || d.paper.id)}</span>` : ''}${esc(d.text)}</div>`);
+  } else if (e.type === 'text') add(`<div class="msg bot">${mdLite(d.text)}</div>`);
+  else if (e.type === 'tool') {
+    add(`<div class="tool" id="tool-${e.id}"><span class="nm">${esc(d.name)}</span><span class="s" title="${esc(d.summary)}">${esc(d.summary)}</span><span class="st run">진행 중</span></div>`);
+    S.tools[d.id] = e.id;
+  } else if (e.type === 'tool_done') {
+    const el = $(`#tool-${S.tools[d.id]}`);
+    if (el) { const st = el.querySelector('.st'); st.className = 'st ' + (d.ok ? 'ok' : 'bad'); st.textContent = d.ok ? '완료' : '거부·실패'; }
+    if (!d.ok && d.summary) add(`<div class="tool-err">${esc(d.summary)}</div>`);
+  } else if (e.type === 'library_changed') {
+    loadLib(true); loadCand();
+  } else if (e.type === 'error') add(`<div class="endline bad">${esc(d.message)}</div>`);
+  else if (e.type === 'done') {
+    if (d.denied && d.denied.length) add(`<div class="endline bad">허용 목록 밖의 도구 ${d.denied.length}건이 거부됐습니다 (${esc([...new Set(d.denied)].join(', '))})</div>`);
+  } else if (e.type === 'run_end') {
+    S.running = false;
+    const msg = { canceled: '중지했습니다', interrupted: d.message || '서버가 다시 켜져 끊겼습니다', failed: '답하지 못하고 끝났습니다' }[d.status];
+    if (msg) add(`<div class="endline bad">${esc(msg)}</div>`);
+    else if (d.cost) add(`<div class="endline">비용 $${Number(d.cost).toFixed(3)}</div>`);
+    box.querySelectorAll('.st.run').forEach(s => { s.className = 'st bad'; s.textContent = '끝나지 않음'; });
+    renderSess(); loadChats(); loadLib(true); loadCand();
+  }
+  if (atBottom || e.type === 'user') wrap.scrollTop = wrap.scrollHeight;
+}
+async function send(text) {
+  text = (text ?? $('#input').value).trim();
+  if (!text) return;
+  if (!S.chatId) { toast('먼저 새 대화를 만드세요'); document.body.classList.add('chat-open'); return; }
+  const paper = S.attach && S.sel && S.sel.kind === 'paper' ? S.sel.id : null;
+  try {
+    S.running = true; setComposer(true);
+    await api(`/api/chats/${S.chatId}/messages`, { method: 'POST', body: { text, paper_id: paper } });
+    if (text === $('#input').value.trim()) $('#input').value = '';
+    document.body.classList.add('chat-open');
+  } catch (e) { S.running = false; renderSess(); toast(e.message); }
+}
+function newChatMenu(btn) {
+  if ($('.menu')) { $('.menu').remove(); return; }
+  const r = btn.getBoundingClientRect();
+  const m = document.createElement('div'); m.className = 'menu'; m.setAttribute('role', 'menu');
+  m.style.top = (r.bottom + 6) + 'px'; m.style.left = Math.max(8, r.right - 300) + 'px';
+  const desc = { claude: '스킬로 찾기·읽기·정리. 서재에 notes 를 씁니다. 내용이 Anthropic 으로 전송됩니다.',
+                 local: '이 컴퓨터의 Qwen. 서재 조회·제목 찾기·받기만 합니다.' };
+  m.innerHTML = S.backends.map(b => `<button role="menuitem" data-backend="${b.name}" ${b.available ? '' : 'disabled'}>
+    <span class="n"><b>${esc(b.label)}</b>${b.available ? '' : ' — 꺼져 있음'}</span>
+    <span class="d">${esc(b.available ? desc[b.name] || '' : b.how)}</span></button>`).join('');
+  document.body.appendChild(m);
+  m.querySelector('button:not(:disabled)')?.focus();
+}
+function setView(v) {
+  S.view = v;
+  $('#tab-lib').setAttribute('aria-selected', v === 'lib'); $('#tab-cand').setAttribute('aria-selected', v === 'cand');
+  if (v === 'cand') { S.sel = null; renderLib(); renderAttach(); $('#main').innerHTML = '<div class="doc"><div class="skeleton"></div><div class="skeleton"></div></div>'; loadCand(); }
+  else if (S.sel && S.sel.kind === 'paper') showPaper(S.sel.id); else welcome();
+}
+
+/* ── 이벤트 연결 ──────────────────────────── */
+document.addEventListener('click', async ev => {
+  const t = ev.target.closest('button');
+  if (!t || (!t.closest('.menu') && t.id !== 'new-chat')) $('.menu')?.remove();
+  if (!t) return;
+  if (t.dataset.paper) { if (S.view !== 'lib') { S.view = 'lib'; $('#tab-lib').setAttribute('aria-selected', true); $('#tab-cand').setAttribute('aria-selected', false); } return showPaper(t.dataset.paper); }
+  if (t.dataset.doc) { const [k, n] = t.dataset.doc.split('/'); if (S.view !== 'lib') setView('lib'); return showDoc(k, n); }
+  if (t.dataset.f) { S.filter = t.dataset.f; renderFilters(); renderLib(); return; }
+  if (t.dataset.st !== undefined) {
+    try { await api(`/api/papers/${S.sel.id}/status`, { method: 'PUT', body: { status: t.dataset.st || null } });
+      await loadLib(); showPaper(S.sel.id, true); toast(t.dataset.st ? `${t.textContent}으로 표시했습니다` : '파일 기준 상태로 되돌렸습니다'); }
+    catch (e) { toast(e.message); } return;
+  }
+  if (t.dataset.ask) return send(t.dataset.ask);
+  if (t.dataset.cv) { S.candView = t.dataset.cv; return loadCand(); }
+  if (t.dataset.abs) {
+    const id = t.dataset.abs;
+    if (S.openAbs.has(id)) { S.openAbs.delete(id); return renderCand(); }
+    S.openAbs.add(id); renderCand();
+    if (S.abs[id] === undefined) { try { S.abs[id] = (await api(`/api/candidates/${id}/abstract`)).abstract; } catch { S.abs[id] = ''; } renderCand(); }
+    return;
+  }
+  if (t.dataset.dec !== undefined) {
+    const id = t.dataset.id, dec = t.dataset.dec || null;
+    try { await api(`/api/candidates/${id}/decision`, { method: 'PUT', body: { decision: dec } });
+      toast(dec ? `${{ read: '읽기', hold: '보류', exclude: '제외' }[dec]}로 옮겼습니다` : '되돌렸습니다');
+      await Promise.all([loadCand(), loadLib()]); } catch (e) { toast(e.message); } return;
+  }
+  if (t.dataset.backend) {
+    $('.menu')?.remove();
+    try { const c = await api('/api/chats', { method: 'POST', body: { backend: t.dataset.backend } }); await loadChats(c.id); $('#input').focus(); }
+    catch (e) { toast(e.message); } return;
+  }
+  switch (t.id) {
+    case 'new-chat': return newChatMenu(t);
+    case 'send': return send();
+    case 'stop': try { await api(`/api/chats/${S.chatId}/cancel`, { method: 'POST' }); } catch (e) { toast(e.message); } return;
+    case 'detach': S.attach = false; return renderAttach();
+    case 'reattach': S.attach = true; return renderAttach();
+    case 'tab-lib': return setView('lib');
+    case 'tab-cand': return setView('cand');
+    case 'chat-toggle': return document.body.classList.toggle('chat-open');
+    case 'lib-toggle': return document.body.classList.toggle('show-lib');
+  }
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { $('.menu')?.remove(); document.body.classList.remove('chat-open'); } });
+$('#input').addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return;
+  e.preventDefault();
+  if (e.isComposing || e.keyCode === 229) return;   // 한글 조합 중 Enter 는 글자 확정
+  send();
+});
+$('#q').addEventListener('input', e => { S.q = e.target.value.trim(); renderLib(); });
+$('#chat-sel').addEventListener('change', e => e.target.value && openChat(e.target.value));
+const mq = matchMedia('(max-width: 760px)');
+const narrow = () => { $('#lib-toggle').style.display = mq.matches ? '' : 'none'; };
+mq.addEventListener('change', narrow); narrow();
+
+(async () => {
+  try {
+    await Promise.all([loadStatus(), loadLib()]);
+    welcome(); loadCand(); await loadChats();
+  } catch (e) {
+    $('#main').innerHTML = `<div class="empty"><h2>서버에 연결하지 못했습니다</h2><p>${esc(e.message)}<br>터미널에서 <span class="ex">python -m paper_analyst serve</span> 가 켜져 있는지 확인하세요.</p></div>`;
+  }
+})();
+</script>
+</body>
+</html>

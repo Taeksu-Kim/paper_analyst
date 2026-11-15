@@ -1,0 +1,33 @@
+{
+  "arxiv_id": "2610.09229",
+  "version": "v1",
+  "title": "Conditional Accuracy Profiles: Diagnosing LLM Judges across Deployment Conditions",
+  "authors": [
+    "Wenqi Li",
+    "Bin Liu",
+    "Mindi Ruan",
+    "Chuanbo Hu",
+    "Minglei Yin",
+    "Xin Li"
+  ],
+  "published": "2026-10-06",
+  "updated": "2026-10-06",
+  "primary_category": "cs.LG",
+  "categories": [
+    "cs.LG",
+    "cs.AI"
+  ],
+  "abstract": "LLM-as-judge is now a standard tool for scalable evaluation, but judge performance is still often summarized by a single accuracy number. This aggregate view hides the deployment conditions under which a judge succeeds or fails. We introduce \\textbf{Conditional Accuracy Profiling} (CAP), a post-hoc diagnostic framework that decomposes pairwise LLM-judge accuracy into eight conditions organized into content sensitivity, robustness, and rationale quality. CAP is benchmark-agnostic: it can be applied directly when a benchmark provides the required annotations, approximately through task-subset proxies, or through controlled augmentation when perturbation pairs can be generated. We instantiate CAP on seven LLM judges across six pairwise judging benchmarks, including \\textsc{judgerEva-Standard}, a controlled testbed we created to support all eight conditions. CAP exposes profile differences hidden by aggregate accuracy: on \\textsc{judgerEva}'s judge-independent Hard-Constructed subset, the two judges most sensitive to omitted qualifications rank in the bottom three of seven by overall accuracy, so omission sensitivity is not predicted by aggregate accuracy. Across benchmarks, Position Robustness shows the strongest rank stability (mean Spearman $\\barρ{=}0.87$) but is itself fragile under JudgeBench-Pro adversarial stress, showing the largest mean accuracy drop among the shared conditions, though the dominant degradation channel varies by judge. Condition-level profiles provide a more actionable basis than aggregate accuracy for selecting LLM judges.",
+  "abs_url": "https://arxiv.org/abs/2610.09229",
+  "pdf_bytes": 3477799,
+  "fetched_at": "2026-11-15T07:32:41+00:00",
+  "parsed": {
+    "source": "arxiv_html",
+    "md_chars": 89523,
+    "images": 3,
+    "warnings": [
+      "파싱 안 된 수식 16개 (alttext 원문으로 둠)"
+    ],
+    "md": "parsed/paper.md"
+  }
+}

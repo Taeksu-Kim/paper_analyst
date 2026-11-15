@@ -1,0 +1,32 @@
+{
+  "arxiv_id": "2606.01779",
+  "version": "v1",
+  "title": "HarnessForge: Joint Harness and Policy Evolution for Adaptive Agent Systems",
+  "authors": [
+    "Chen, Mingju",
+    "Lv, Can",
+    "Zhang, Guibin",
+    "Chang, Heng",
+    "Zhou, Shiji"
+  ],
+  "published": "2026-06-01",
+  "updated": "2026-06-01",
+  "primary_category": "cs.CL",
+  "categories": [
+    "cs.CL"
+  ],
+  "abstract": "LLM agents are increasingly expected to operate across heterogeneous task regimes that require distinct execution paradigms. This challenges fixed agent systems and motivates system-level meta-adaptation beyond isolated component updates. While existing works have adapted external harness or trained underlying reasoning policies, full-system adaptation remains insufficiently characterized. The adaptation space between structure and execution is rarely made explicit, and the compatibility between the external harness and the internal reasoner is not optimized jointly. We propose HarnessForge, a meta-adaptive framework for evolving LLM agent systems. HarnessForge formulates an agent system as a harness--policy pair, defining a stable adaptation space that separates harness-level execution structure from policy-level reasoning behavior. It then performs harness--policy co-evolution through fault-guided harness tailoring and harness-conditioned policy alignment. Experiments across five benchmarks from diverse domains show that HarnessForge consistently improves both Qwen3-4B and Qwen3-8B backbones, outperforming harness-only and policy-only baselines with gains of up to 12.0\\% over the strongest baseline and achieving favorable rollout-efficiency tradeoffs, demonstrating that harness--policy co-evolution is effective, and that executable compatibility between the harness and reasoning policy is essential for agent-system adaptation. The code is available at https://github.com/mingju-c/HarnessForge.",
+  "abs_url": "https://arxiv.org/abs/2606.01779",
+  "meta_source": "abs 페이지 (API 실패: HTTP 429: https://export.arxiv.org/api/query?id_list=2603.28)",
+  "pdf_bytes": 3872329,
+  "fetched_at": "2026-11-14T05:05:37+00:00",
+  "parsed": {
+    "source": "arxiv_html",
+    "md_chars": 106931,
+    "images": 15,
+    "warnings": [
+      "파싱 안 된 수식 5개 (alttext 원문으로 둠)"
+    ],
+    "md": "parsed/paper.md"
+  }
+}

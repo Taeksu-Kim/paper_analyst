@@ -1,0 +1,36 @@
+{
+  "arxiv_id": "2606.28434",
+  "version": "v1",
+  "title": "SWE-MeM: Learning Adaptive Memory Management for Long-Horizon Coding Agents",
+  "authors": [
+    "Shuzheng Gao",
+    "Wenhao Zeng",
+    "Zhaojian Yu",
+    "Jianqiao Wangni",
+    "Chaozheng Wang",
+    "Kai Cai",
+    "Shilin He",
+    "Michael R. Lyu"
+  ],
+  "published": "2026-06-26",
+  "updated": "2026-06-26",
+  "primary_category": "cs.SE",
+  "categories": [
+    "cs.SE",
+    "cs.AI"
+  ],
+  "abstract": "Long-horizon software engineering agents often need to manage lengthy and noisy interaction histories under limited context budgets. Existing memory management methods typically rely on static compression workflows or impose rigid constraints on compression timing and granularity. Moreover, these approaches fail to jointly optimize memory management and issue resolution capabilities to improve performance while reducing token usage. We present SWE-MeM, a training framework for proactive and on-demand memory management in software engineering agents. SWE-MeM provides a flexible memory tool that lets agents decide when, what, and how to compress based on trajectory state, task progress, and remaining context budget. We train agents with synthesized proactive memory-management trajectories and Memory-aware GRPO, which jointly optimizes memory management and issue resolution through memory-aware trajectory splitting and step-level credit assignment. On SWE-Bench Verified, SWE-MeM achieves 43.4% and 60.2% resolve rate with 4B and 30B models, respectively, outperforming existing memory management baselines in both performance and efficiency.",
+  "abs_url": "https://arxiv.org/abs/2606.28434",
+  "pdf_bytes": 3652775,
+  "fetched_at": "2026-11-14T02:13:54+00:00",
+  "parsed": {
+    "source": "arxiv_html",
+    "md_chars": 96061,
+    "images": 6,
+    "warnings": [
+      "LaTeXML 변환 오류 표시 2곳 (.ltx_ERROR)",
+      "파싱 안 된 수식 10개 (alttext 원문으로 둠)"
+    ],
+    "md": "parsed/paper.md"
+  }
+}

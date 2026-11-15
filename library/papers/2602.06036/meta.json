@@ -1,0 +1,30 @@
+{
+  "arxiv_id": "2602.06036",
+  "version": "v2",
+  "title": "DFlash: Block Diffusion for Flash Speculative Decoding",
+  "authors": [
+    "Chen, Jian",
+    "Liang, Yesheng",
+    "Liu, Zhijian"
+  ],
+  "published": "2026-02-05",
+  "updated": "2026-02-05",
+  "primary_category": "cs.CL",
+  "categories": [
+    "cs.CL"
+  ],
+  "abstract": "Autoregressive large language models (LLMs) deliver strong performance but require inherently sequential decoding, leading to high inference latency and poor GPU utilization. Speculative decoding mitigates this bottleneck by using a fast draft model whose outputs are verified in parallel by the target LLM; however, existing methods still rely on autoregressive drafting, which remains sequential and limits practical speedups. Diffusion LLMs offer a promising alternative by enabling parallel generation, but current diffusion models typically underperform compared with autoregressive models. In this paper, we introduce DFlash, a speculative decoding framework that employs a lightweight block diffusion model for parallel drafting. By generating draft tokens in a single forward pass and conditioning the draft model on context features extracted from the target model, DFlash enables efficient drafting with high-quality outputs and higher acceptance rates. Experiments show that DFlash achieves over 6x lossless acceleration across a range of models and tasks, delivering up to 2.5x higher speedup than the state-of-the-art speculative decoding method EAGLE-3.",
+  "abs_url": "https://arxiv.org/abs/2602.06036",
+  "meta_source": "abs 페이지 (API 실패: HTTP 429: https://export.arxiv.org/api/query?id_list=2603.28)",
+  "pdf_bytes": 499459,
+  "fetched_at": "2026-11-14T05:08:19+00:00",
+  "parsed": {
+    "source": "arxiv_html",
+    "md_chars": 60431,
+    "images": 5,
+    "warnings": [
+      "파싱 안 된 수식 1개 (alttext 원문으로 둠)"
+    ],
+    "md": "parsed/paper.md"
+  }
+}

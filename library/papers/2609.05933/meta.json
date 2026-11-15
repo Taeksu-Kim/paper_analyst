@@ -1,0 +1,35 @@
+{
+  "arxiv_id": "2609.05933",
+  "version": "v1",
+  "title": "Rethinking the Evaluation of Efficiency Methods for Multi-Agent Systems",
+  "authors": [
+    "Jiamu Zhang",
+    "Lingxi Zhang",
+    "Pengjun Lu",
+    "Qiyue Zhang",
+    "Yu-Neng Chuang",
+    "Zhengchen Li",
+    "Shuai Xu",
+    "Vipin Chaudhary",
+    "Hanjie Chen"
+  ],
+  "published": "2026-09-05",
+  "updated": "2026-09-05",
+  "primary_category": "cs.LG",
+  "categories": [
+    "cs.LG"
+  ],
+  "abstract": "Efficiency is increasingly important for Large Language Model (LLM)-based multi-agent systems (MAS), as larger models and more agents introduce substantial execution costs. Recent methods aim to make MAS cheaper by pruning agents, removing communication edges, or searching for compact structures. However, we argue that existing evaluations may overestimate their true ability to improve MAS efficiency. Reported gains are often measured under method-specific prompts and starting topologies, making them difficult to attribute to the proposed structural changes. Moreover, many reported successes appear in non-MAS-demanding settings, where a single agent or a randomly pruned system can already preserve strong performance. To study these issues, we introduce a controlled and MAS-demanding diagnostic benchmark for representative MAS efficiency methods. We evaluate methods under a shared backbone model, agent registry, and runtime, across controlled variations in topology, scale, depth, and tool use. Our analysis shows that many reported gains are setup-dependent and may arise from structural collapse, disabled tool pathways, or starting systems where random pruning already preserves accuracy, rather than robust improvements in MAS efficiency.",
+  "abs_url": "https://arxiv.org/abs/2609.05933",
+  "pdf_bytes": 2564601,
+  "fetched_at": "2026-11-14T02:02:34+00:00",
+  "parsed": {
+    "source": "arxiv_html",
+    "md_chars": 158523,
+    "images": 2,
+    "warnings": [
+      "파싱 안 된 수식 37개 (alttext 원문으로 둠)"
+    ],
+    "md": "parsed/paper.md"
+  }
+}

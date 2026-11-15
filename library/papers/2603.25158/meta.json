@@ -1,0 +1,37 @@
+{
+  "arxiv_id": "2603.25158",
+  "version": "v5",
+  "title": "Trace2Skill: Distill Trajectory-Local Lessons into Transferable Agent Skills",
+  "authors": [
+    "Ni, Jingwei",
+    "Liu, Yihao",
+    "Liu, Xinpeng",
+    "Sun, Yutao",
+    "Zhou, Mengyu",
+    "Cheng, Pengyu",
+    "Wang, Dexin",
+    "Zhao, Erchao",
+    "Jiang, Xiaoxi",
+    "Jiang, Guanjun"
+  ],
+  "published": "2026-03-26",
+  "updated": "2026-03-26",
+  "primary_category": "cs.AI",
+  "categories": [
+    "cs.AI"
+  ],
+  "abstract": "Large Language Model (LLM) agents increasingly rely on domain-specific skills, yet manually authoring such skills does not scale, and skills generated purely from parametric knowledge often miss critical operational pitfalls. We introduce Trace2Skill, a framework that consolidates broad execution trajectories in parallel into a unified skill directory through inductive reasoning over agent experience. Trace2Skill supports both deepening existing human-written skills and creating useful skills from weak LLM-generated drafts. Experiments demonstrate the effectiveness of Trace2Skill across diverse domains, including office workflows, math reasoning, and vision QA. Importantly, the evolved skills are not merely memorized artifacts of the trajectories used to create them: they often transfer across model scales, across model families, and to out-of-distribution settings. For example, skills evolved from Qwen3.5-35B trajectories improve a Qwen3.5-122B agent by up to $57.65$ percentage points on WikiTableQuestions. Further analyses show that Trace2Skill outperforms sequential skill editing and ReasoningBank-style retrieval memories, compresses recurring failures and workarounds into standard operating procedures (SoPs), and yields portable skills that can be reused without parameter updates or test-time retrieval.",
+  "abs_url": "https://arxiv.org/abs/2603.25158",
+  "meta_source": "abs 페이지 (API 실패: HTTP 429: https://export.arxiv.org/api/query?id_list=2603.28)",
+  "pdf_bytes": 1991654,
+  "fetched_at": "2026-11-14T05:05:22+00:00",
+  "parsed": {
+    "source": "arxiv_html",
+    "md_chars": 93168,
+    "images": 5,
+    "warnings": [
+      "파싱 안 된 수식 3개 (alttext 원문으로 둠)"
+    ],
+    "md": "parsed/paper.md"
+  }
+}
