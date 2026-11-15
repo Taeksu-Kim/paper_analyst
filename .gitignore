@@ -15,3 +15,5 @@ __pycache__/
 profiles/active
 # 화면 상태 DB (대화·후보 판정)
 data/
+# 발행 초안 (본인 글 — 개인 문체·맥락이 들어갈 수 있어 git 제외)
+posts/

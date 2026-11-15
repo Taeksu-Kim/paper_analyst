@@ -163,3 +163,12 @@ python -m paper_analyst.enrich 2604.12374 --refresh           # 7일 캐시 무�
   피하지만, ACL Anthology 등 PDF 만 있는 논문은 doc_parser 개선이 필요 — 별도 과제.
 - HTML: 제목 아래 라이선스 문구·처리 안 된 매크로 한 줄이 남는 논문이 있다 (Attention, SWE-MeM). 표 캡션은 표 뒤에 온다.
 - HTML 그림 중 같은 파일을 두 번 참조하는 경우가 있다 (Nemotron: 링크 26, 파일 20).
+
+## 라이선스
+
+- **코드** (`paper_analyst/`, `tools/`, `tests/`, `.claude/skills/`, 설정 파일): [Apache License 2.0](LICENSE)
+- **글** (`library/papers/*/notes.md`, `ideas/`, `lists/`, `docs/`): [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) — 출처를 밝히면 자유롭게 쓸 수 있다.
+  논문 내용의 저작권은 각 논문 저자에게 있다. 원문(PDF·HTML·변환 md)은 이 저장소에 없다.
+- 의존성 주의: SVG 그림 변환에 쓰는 **PyMuPDF 는 AGPL-3.0** (또는 상용 라이선스)이다. 선택 설치이며, 함께 배포하거나 서비스로 운영할 때는
+  그 조건을 따른다. 없으면 SVG 그림만 빠지고 나머지는 동작한다.
+
