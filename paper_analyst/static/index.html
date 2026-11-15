@@ -228,6 +228,13 @@ table.cmp .empty-cell { color: var(--text-3); }
 .sess:empty { display: none; }
 .sess b { color: var(--text); }
 .sess .when { white-space: nowrap; }
+button.chip { background: none; cursor: pointer; font: inherit; font-size: var(--fs-cap); padding: 4px 10px; }   /* 누르는 칩은 24px 이상 */
+button.chip:hover { border-color: var(--line-strong); color: var(--text); }
+.pop { position: fixed; top: 44px; left: 12px; z-index: 40; width: min(420px, calc(100vw - 24px)); background: var(--panel); border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg); padding: 12px 14px; box-shadow: 0 6px 24px rgba(0,0,0,.14); font-size: var(--fs-label); line-height: 1.55; }
+.pop h2 { font-size: var(--fs-h3); margin: 0 0 2px; }
+.pop dl { margin: 8px 0 0; } .pop dt { font-size: var(--fs-cap); color: var(--text-3); font-weight: 700; margin-top: 8px; } .pop dd { margin: 2px 0 0; }
+.pop .tags { display: flex; flex-wrap: wrap; gap: 4px; }
 .cmp-pick { margin-top: 18px; text-align: left; }
 .cmp-pick .gh { font-size: var(--fs-cap); color: var(--text-3); font-weight: 700; margin-bottom: 2px; }
 .cmp-pick .row { display: flex; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); }
@@ -289,7 +296,8 @@ table.cmp .empty-cell { color: var(--text-3); }
 <nav class="skips" aria-label="건너뛰기"><a class="skip" href="#main" data-skip="main">본문으로</a><a class="skip" href="#input" data-skip="chat">대화로</a></nav>
 <header class="top">
   <span class="brand">paper_analyst</span>
-  <span class="chip profile" id="profile" title="현재 프로필">프로필 확인 중…</span>
+  <button class="chip profile" id="profile" aria-expanded="false" aria-controls="profile-pop">프로필 확인 중…</button>
+  <div class="pop" id="profile-pop" role="dialog" aria-label="프로필 설명" hidden></div>
   <nav class="tabs" role="tablist">
     <button class="tab" role="tab" id="tab-lib" aria-selected="true">서재</button>
     <button class="tab" role="tab" id="tab-cand" aria-selected="false">후보함<span class="n" id="cand-n"></span></button>
@@ -767,8 +775,17 @@ const bname = n => (S.backends.find(b => b.name === n) || { label: n }).label;
 async function loadStatus() {
   const st = await api('/api/status');
   S.backends = st.backends;
-  $('#profile').textContent = st.profile.name ? `프로필 ${st.profile.name}` : '프로필 없음';
-  $('#profile').title = st.profile.name ? (st.profile.description || '') : (st.profile.error || '');
+  const pr = st.profile;
+  $('#profile').textContent = pr.name ? `프로필 ${pr.name} ▾` : '프로필 없음 ▾';
+  const SRC = { hf: 'Hugging Face 화제 논문', hn: 'Hacker News', s2: 'Semantic Scholar 인용', kw: '관심 키워드 검색' };
+  const tp = pr.topics || [];
+  $('#profile-pop').innerHTML = pr.name ? `<h2>프로필 ${esc(pr.name)}</h2><div class="hint">${esc(pr.description || '')}</div>
+    <p style="margin:8px 0 0">어떤 논문을 후보로 모으고, 어떤 관점으로 읽고 정리할지 정해 둔 설정입니다.</p>
+    <dl>${pr.lens ? `<dt>읽는 관점</dt><dd>${esc(pr.lens)}</dd>` : ''}
+      ${tp.length ? `<dt>관심 주제 ${tp.length}개</dt><dd class="tags">${tp.map(t => `<span class="chip">${esc(t)}</span>`).join('')}</dd>` : ''}
+      ${(pr.sources || []).length ? `<dt>후보 찾는 곳</dt><dd>${pr.sources.map(x => esc(SRC[x] || x)).join(' · ')}</dd>` : ''}
+      <dt>바꾸려면</dt><dd>대화창에 <span class="ex">paper-setup 으로 프로필 바꿔줘</span> — Claude 가 몇 가지를 묻고 새 프로필을 만듭니다.</dd></dl>`
+    : `<h2>프로필이 없습니다</h2><p>${esc(pr.error || '')}</p><p>대화창에 <span class="ex">paper-setup 으로 프로필 만들어줘</span>라고 하면 Claude 가 몇 가지를 묻고 만듭니다.</p>`;
 }
 async function loadChats(selectId) {
   S.chats = await api('/api/chats');
@@ -971,6 +988,7 @@ document.addEventListener('click', async ev => {
     case 'tab-lib': return setView('lib');
     case 'tab-cand': return setView('cand');
     case 'tab-cmp': return setView('cmp');
+    case 'profile': return toggleProfile();
     case 'reread': case 'reread-cancel': {
       const box = $('#reread-box'), open = t.id === 'reread' && box.hidden;
       box.hidden = !open; $('#reread').setAttribute('aria-expanded', open);
@@ -1022,6 +1040,19 @@ document.addEventListener('click', e => {   // 건너뛰기 링크: 본문 / 대
   if (a.dataset.skip === 'main') { const m = $('#main'); m.tabIndex = -1; m.focus(); }
   else { document.body.classList.add('chat-open'); ($('#input').disabled ? $('#new-chat') : $('#input')).focus(); }
 });
+function toggleProfile(open) {
+  const pop = $('#profile-pop'), on = open ?? pop.hidden;
+  pop.hidden = !on; $('#profile').setAttribute('aria-expanded', on);
+  if (on) {   // 칩 바로 아래, 화면 밖으로 나가지 않게
+    const r = $('#profile').getBoundingClientRect();
+    pop.style.top = `${r.bottom + 6}px`; pop.style.left = `${Math.max(12, Math.min(r.left, innerWidth - pop.offsetWidth - 12))}px`;
+  }
+  if (!on && pop.contains(document.activeElement)) $('#profile').focus();
+}
+document.addEventListener('click', e => {   // 밖을 누르면 닫는다
+  if (!$('#profile-pop').hidden && !e.target.closest('#profile-pop, #profile')) toggleProfile(false);
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#profile-pop').hidden) { toggleProfile(false); $('#profile').focus(); } });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { $('.menu')?.remove(); document.body.classList.remove('chat-open'); } });
 $('#input').addEventListener('keydown', e => {
   if (e.key !== 'Enter' || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return;
