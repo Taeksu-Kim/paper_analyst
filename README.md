@@ -5,6 +5,21 @@
 분야는 프로필(`profiles/*.toml`)로 바꾼다. PDF 를 Claude 에 직접 넣지 않는다 — 변환된 md 만 절 단위로 읽는다 (토큰).
 범위: 후보 소스와 받기가 arXiv 기반이라 **arXiv 에 올라오는 분야**에서 동작한다.
 
+## 화면
+
+![서재 — 논문 결론·태그·연결과 화면 속 Claude 대화](docs/images/library.png)
+서재: 왼쪽 목록(상태·태그로 거르기) · 가운데 논문(결론 블록 → 태그 → 연결 → notes) · 오른쪽 Claude 대화 (도구 실행이 줄로 보임)
+
+| 결론 비교 | 후보함 |
+|---|---|
+| ![결론 비교](docs/images/compare.png) | ![후보함](docs/images/candidates.png) |
+| 담은 논문들의 결론을 항목별로 나란히 | 신호(★·HN·인용·키워드)로 모은 후보를 읽기·보류·제외 |
+
+![발행 — LinkedIn 초안, 점검 결과, 게시 버튼](docs/images/publish.png)
+발행: 초안을 LinkedIn 글자 / 블로그 마크다운 / 티스토리 HTML 로 보고 복사하거나, 확인 창을 거쳐 LinkedIn 에 게시
+
+(캡처는 `python tools/screenshots.py` — 실제 서재의 공개 파일만 복사해 찍는다. 대화 패널은 예시 대화)
+
 ## 처음 쓰는 사람
 
 ```bash
@@ -98,6 +113,7 @@ paper_analyst/
 ├── docs/SOURCES.md          # 어느 소스를 언제 쓰나 + 측정 근거
 ├── tests/test_api.py        # 제품 API 진입점 테스트 (모델·네트워크만 가짜)
 ├── tools/browser_check.py   # 실제 브라우저 점검 (실제 서재 복사본 + 가짜 세션)
+├── tools/screenshots.py     # README 캡처 (docs/images/)
 ├── data/ · posts/           # (git 제외) 화면 상태 DB · 발행 초안
 └── library/
     ├── papers/<arxiv_id>/   # meta.json · notes.md · (git 제외) paper.pdf · paper.html · parsed/ · external.json · notes.private.md
