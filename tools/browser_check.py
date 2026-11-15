@@ -86,9 +86,25 @@ class Fake:
         return FakeProc(ctx, text)
 
 
+class FakeLI:
+    def __init__(self):
+        self.posts = []
+
+    def exchange_code(self, *a):
+        return {"access_token": "t", "expires_in": 5184000}
+
+    def userinfo(self, tok):
+        return {"sub": "s1", "name": "테스트 계정"}
+
+    def create_post(self, tok, author, text):
+        self.posts.append((author, text))
+        return f"urn:li:share:{len(self.posts)}"
+
+
+FAKE_LI = FakeLI()
 backends = {"claude": Fake("claude", "Claude Code", True),
             "local": Fake("local", "로컬 LLM", False, "로컬 LLM 서버가 꺼져 있습니다. LLM.md §2 의 명령으로 켜세요.")}
-app = create_app(TMP, backends=backends, db_path=TMP / "data" / "ui.db",
+app = create_app(TMP, backends=backends, db_path=TMP / "data" / "ui.db", linkedin=FAKE_LI,
                  abstract_fn=lambda a: f"{a} 의 초록입니다. 에이전트 하네스에 대한 연구." * 3)
 with socket.socket() as s:
     s.bind(("127.0.0.1", 0))
@@ -277,6 +293,34 @@ with sync_playwright() as p:
     page.wait_for_selector("pre.preview-src")
     check("발행: 티스토리 HTML 원본 (표 포함)", "<table>" in page.inner_text("pre.preview-src"))
     basics(page, "1440 발행")
+    # LinkedIn: 키 없음 → 안내 / 연결됨 + 경고 → 게시 잠김 / 고친 뒤 확인 창 → 게시 → 게시됨
+    page.click("button[data-ptab='linkedin']")
+    page.wait_for_selector(".pubbar")
+    check("LinkedIn: 앱 키 없음 안내", "앱 키가 필요" in page.inner_text(".pubbar"))
+    (TMP / "data" / "linkedin_app.json").write_text(json.dumps({"client_id": "c", "client_secret": "s"}))
+    page.click("#tab-lib"); page.click("#tab-pub")
+    page.wait_for_selector(".pubbar a[href='/api/linkedin/connect']")
+    check("LinkedIn: 연결 버튼", True)
+    (TMP / "data" / "linkedin_token.json").write_text(json.dumps({"access_token": "t", "expires_at": time.time() + 86400 * 50,
+                                                                  "sub": "s1", "name": "테스트 계정"}))
+    page.click("#tab-lib"); page.click("#tab-pub")
+    page.wait_for_selector("#li-publish")
+    check("LinkedIn: 점검 경고가 남으면 게시 잠김", page.is_disabled("#li-publish") and "테스트 계정" in page.inner_text(".pubbar"))
+    (_pd / "linkedin.md").write_text("**LLM 판정기를 정확도 한 숫자로 고르면 안 됩니다.**\n\n- 순서 바꿈 강건성\n\n출처: https://arxiv.org/abs/2610.09229\n#LLM")
+    page.click("#tab-lib"); page.click("#tab-pub")
+    page.wait_for_selector("#li-publish:not([disabled])")
+    page.click("#li-publish")
+    page.wait_for_selector("#li-dialog[open]")
+    check("LinkedIn: 확인 창 (계정·글자 수)", "테스트 계정" in page.inner_text("#li-dialog") and "자" in page.inner_text("#li-dialog-body"))
+    page.screenshot(path=str(TMP / "shot_1440_li_confirm.png"))
+    page.click("#li-cancel")
+    check("LinkedIn: 취소하면 안 올라감", FAKE_LI.posts == [] and not page.is_visible("#li-dialog"))
+    page.click("#li-publish")
+    page.click("#li-confirm")
+    page.wait_for_selector(".pubbar .done")
+    check("LinkedIn: 게시됨 + 링크, 한 번만", len(FAKE_LI.posts) == 1 and page.locator(".pubbar a[href*='feed/update']").count() == 1
+          and FAKE_LI.posts[0][1].startswith("LLM 판정기를") and "\n\n• 순서" in FAKE_LI.posts[0][1])
+    page.screenshot(path=str(TMP / "shot_1440_li_done.png"))
     page.click("button[data-paper='2603.28052']") if page.locator(".pub-body button[data-paper='2603.28052']").count() else None
     page.wait_for_selector("article h1")
     check("재료 링크 → 논문 화면 + 글 초안 버튼", page.locator("button[data-ask*='paper-post']").count() == 1)

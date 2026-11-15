@@ -7,11 +7,11 @@ from collections.abc import Callable
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, StreamingResponse
 from pydantic import BaseModel
 
 from paper_analyst.chat import ChatBackend
-from paper_analyst.service import Busy, NotFound, Service, Unavailable
+from paper_analyst.service import Busy, Conflict, NotFound, Service, Unavailable
 
 STATIC = Path(__file__).parent / "static"
 
@@ -39,6 +39,10 @@ class LinkIn(BaseModel):
     note: str = ""
 
 
+class PublishIn(BaseModel):
+    sha: str
+
+
 class MemoIn(BaseModel):
     text: str
 
@@ -50,8 +54,8 @@ class MessageIn(BaseModel):
 
 def create_app(root: Path, *, backends: dict[str, ChatBackend] | None = None, db_path: Path | None = None,
                abstract_fn: Callable[[str], str] | None = None, fetch_fn: Callable[[str], dict] | None = None,
-               topics: list[str] | None = None) -> FastAPI:
-    svc = Service(root, db_path or root / "data" / "paper_analyst.db", backends, abstract_fn, fetch_fn, topics)
+               topics: list[str] | None = None, linkedin=None) -> FastAPI:
+    svc = Service(root, db_path or root / "data" / "paper_analyst.db", backends, abstract_fn, fetch_fn, topics, linkedin)
     if backends is None:   # 실제 서버: 두 세션 모두 (꺼져 있으면 화면에서 잠김)
         from paper_analyst.chat import ClaudeBackend, LocalBackend
         svc.backends = {"claude": ClaudeBackend(root), "local": LocalBackend(svc.local_tools())}
@@ -65,7 +69,7 @@ def create_app(root: Path, *, backends: dict[str, ChatBackend] | None = None, db
             raise HTTPException(404, f"찾을 수 없음: {e}") from e
         except ValueError as e:
             raise HTTPException(400, str(e)) from e
-        except Busy as e:
+        except (Busy, Conflict) as e:
             raise HTTPException(409, str(e)) from e
         except Unavailable as e:
             raise HTTPException(503, str(e)) from e
@@ -119,6 +123,41 @@ def create_app(root: Path, *, backends: dict[str, ChatBackend] | None = None, db
     @app.get("/api/posts/{slug}")
     def post(slug: str):
         return guard(svc.post, slug)
+
+    @app.get("/api/linkedin")
+    def linkedin_status():
+        return svc.linkedin_status()
+
+    def _redirect_uri(request: Request) -> str:
+        return str(request.base_url).rstrip("/") + "/api/linkedin/callback"
+
+    @app.get("/api/linkedin/connect")
+    def linkedin_connect(request: Request):
+        return RedirectResponse(guard(svc.linkedin_connect_url, _redirect_uri(request)))
+
+    @app.get("/api/linkedin/callback")
+    def linkedin_callback(request: Request, code: str = "", state: str = "", error: str = "", error_description: str = ""):
+        if error:
+            msg, ok = f"LinkedIn 연결을 취소했거나 거부됐습니다 ({error}: {error_description})", False
+        else:
+            try:
+                st = svc.linkedin_callback(code, state, _redirect_uri(request))
+                msg, ok = f"LinkedIn 계정 '{st['name']}' 이(가) 연결됐습니다.", True
+            except (ValueError, Unavailable) as e:
+                msg, ok = str(e), False
+        import html as _h
+        return HTMLResponse(f"""<!doctype html><meta charset="utf-8"><title>LinkedIn 연결</title>
+<body style="font:15px/1.6 system-ui,sans-serif;max-width:560px;margin:15vh auto;padding:0 16px">
+<h1 style="font-size:20px">{'연결됨' if ok else '연결하지 못했습니다'}</h1><p>{_h.escape(msg)}</p>
+<p><a href="/#pub">발행 화면으로 돌아가기</a></p></body>""", status_code=200 if ok else 400)
+
+    @app.post("/api/linkedin/disconnect")
+    def linkedin_disconnect():
+        return svc.linkedin_disconnect()
+
+    @app.post("/api/posts/{slug}/linkedin")
+    def linkedin_publish(slug: str, body: PublishIn):
+        return guard(svc.linkedin_publish, slug, body.sha)
 
     @app.get("/api/compare")
     def compare(ids: str):

@@ -17,6 +17,7 @@ posts/ 는 git 에서 제외된다.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -62,7 +63,7 @@ def plain(md: str) -> str:
     t = re.sub(r"(?<!\w)\*(?!\s)(.+?)(?<!\s)\*(?!\w)", r"\1", t)
     t = re.sub(r"`([^`]+)`", r"\1", t)
     t = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r"\1 (\2)", t)
-    t = re.sub(r"^\s*[-*] ", "• ", t, flags=re.M)
+    t = re.sub(r"^[ \t]*[-*] ", "• ", t, flags=re.M)     # \s 는 줄바꿈까지 먹어 문단 사이 빈 줄이 사라진다
     return t.strip() + "\n"
 
 
@@ -95,7 +96,8 @@ def check(text: str, root: Path, kind: str) -> dict:
     if kind == "linkedin":
         body = plain(text)
         first = next((l for l in body.split("\n") if l.strip()), "")
-        out.update({"chars": len(body), "limit": LINKEDIN_LIMIT, "over_limit": len(body) > LINKEDIN_LIMIT,
+        n = len(body.strip())       # 화면·확인 창·게시 본문이 같은 숫자를 쓰도록 (끝 줄바꿈 제외)
+        out.update({"chars": n, "limit": LINKEDIN_LIMIT, "over_limit": n > LINKEDIN_LIMIT,
                     "hook": first[:LINKEDIN_FOLD], "hook_cut": len(first) > LINKEDIN_FOLD})
     return out
 
@@ -106,12 +108,26 @@ def read_post(root: Path, slug: str) -> dict:
     p = posts_dir(root) / slug
     if not p.is_dir():
         raise FileNotFoundError(slug)
-    out = {"slug": slug, **{k: v for k, v in _meta(p).items() if k in ("title", "sources", "created")}}
+    out = {"slug": slug, "published": {}, **{k: v for k, v in _meta(p).items() if k in ("title", "sources", "created", "published")}}
     li = (p / "linkedin.md").read_text(encoding="utf-8") if (p / "linkedin.md").exists() else ""
     bl = (p / "blog.md").read_text(encoding="utf-8") if (p / "blog.md").exists() else ""
-    out["linkedin"] = {"md": li, "plain": plain(li), "check": check(li, root, "linkedin")} if li else None
+    out["linkedin"] = {"md": li, "plain": plain(li), "sha": text_sha(plain(li)), "check": check(li, root, "linkedin")} if li else None
     out["blog"] = {"md": bl, "html": to_html(bl), "check": check(bl, root, "blog")} if bl else None
     return out
+
+
+def text_sha(text: str) -> str:
+    """화면에 보여 준 글과 게시할 글이 같은지 대조하는 짧은 해시."""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+
+
+def mark_published(root: Path, slug: str, where: str, info: dict) -> None:
+    p = posts_dir(root) / slug
+    meta = _meta(p)
+    meta.setdefault("published", {})[where] = info
+    tmp = p / "meta.json.tmp"
+    tmp.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp.replace(p / "meta.json")
 
 
 def main() -> int:

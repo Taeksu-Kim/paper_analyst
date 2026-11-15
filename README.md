@@ -38,7 +38,22 @@ claude                                 # Claude Code 설치·로그인 (스킬�
 - **로컬 LLM** — vLLM(OpenAI 호환, 기본 `http://<호스트 IP>:8002/v1`, `PAPER_LLM_URL` 로 변경)의 Qwen. 서재 조회·notes 읽기·제목→id·
   후보 보기·받기 도구만 쓴다 (정리는 하지 않는다). 서버가 꺼져 있으면 선택지가 잠기고 켜는 법이 보인다.
 - 대화·실행 기록·후보 판정·태그·연결은 `data/paper_analyst.db` (SQLite, git 제외) — 서버를 다시 켜도 같은 대화를 이어간다.
-- **자동 게시는 하지 않는다.** LinkedIn 은 개발자 앱 등록·OAuth 가 필요하고, 티스토리 Open API 는 종료된 것으로 안다 (둘 다 확인 안 함) → 복사해서 붙여 넣는다.
+- **게시는 사람이 누를 때만.** LinkedIn 은 발행 탭의 "LinkedIn 에 게시"(확인 창 → 한 번만, 아래 설정 필요). 티스토리는 Open API 가 종료된 것으로 알아 (확인 안 함) HTML 을 복사해 붙여 넣는다. 예약·자동 게시는 없다.
+
+## LinkedIn 게시 (선택)
+
+공식 API 만 쓴다 ("Share on LinkedIn" + "Sign In with LinkedIn using OpenID Connect"). 처음 한 번:
+1. LinkedIn 개발자 사이트에서 앱 만들기 — **LinkedIn 페이지 연결이 필수**다 (개인 프로필에만 올려도). 페이지 관리자가 연결을 승인한다
+2. 앱의 Products 에서 **Share on LinkedIn**, **Sign In with LinkedIn using OpenID Connect** 추가
+3. Auth 의 Redirect URL 에 `http://127.0.0.1:8768/api/linkedin/callback`
+4. 키를 환경변수 `LINKEDIN_CLIENT_ID`·`LINKEDIN_CLIENT_SECRET` 또는 `data/linkedin_app.json` (`{"client_id": "...", "client_secret": "..."}`, git 제외) 에 두고 서버를 켠다
+5. 발행 탭 → **LinkedIn 연결** → 로그인·승인 → 토큰은 `data/linkedin_token.json` (권한 600, git 제외)
+
+- 게시: 발행 탭의 LinkedIn 보기에서 **LinkedIn 에 게시** → 확인 창(계정·글자 수) → 게시. 점검 경고(개인 메모 겹침·길이 초과)가 남으면 잠기고,
+  미리보기 뒤 초안이 바뀌었으면 거부하며, 한 글은 한 번만 올린다. 게시 기록(글 링크·시각)은 초안의 `meta.json` 에
+- 액세스 토큰은 60일, 갱신 토큰은 일부 파트너에게만 주어진다 → 만료되면 다시 연결 (공식 문서, 2026-11-15 확인)
+- 화면의 Claude 세션에는 게시 권한이 없다 — 대화로 "올려줘"라고 해도 올라가지 않는다
+- 범위: 글자·링크만 (이미지 첨부는 업로드 절차가 따로 있어 아직 없음)
 
 ## import (엔진)
 
@@ -76,6 +91,7 @@ paper_analyst/
 │   ├── store.py · service.py      # 상태(SQLite) · 서비스 (화면 API 가 부르는 유일한 층)
 │   ├── chat.py              # 대화 세션 2종 (Claude Code · 로컬 LLM)
 │   ├── post.py              # 발행 초안 읽기·점검 (개인 메모 겹침·길이)
+│   ├── linkedin.py          # LinkedIn 공식 API (OAuth·게시) — 화면 버튼으로만
 │   └── app.py · __main__.py · static/index.html   # 제품 API · serve · 화면
 ├── profiles/                # nlp.toml (예시) · active (git 제외) · *.private.md (git 제외)
 ├── lists/ · ideas/          # 읽을 목록 · 논문에서 나온 논의·설계안

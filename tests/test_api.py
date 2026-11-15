@@ -238,3 +238,74 @@ def test_posts(env):
     assert c.get("/api/posts/2026-11-16_judge").json()["linkedin"]["check"]["over_limit"] is True
     assert c.get("/api/posts/없음").status_code == 404
     assert c.get("/api/posts/..%2F..%2Fetc").status_code == 404
+
+
+class FakeLinkedIn:
+    def __init__(self):
+        self.posts, self.fail = [], None
+
+    def exchange_code(self, code, redirect_uri, client_id, client_secret):
+        assert code == "good-code" and client_id == "cid" and redirect_uri.endswith("/api/linkedin/callback")
+        return {"access_token": "tok", "expires_in": 5184000}
+
+    def userinfo(self, access_token):
+        return {"sub": "abc123", "name": "테스트 계정"}
+
+    def create_post(self, access_token, author_urn, text):
+        from paper_analyst.linkedin import LinkedInError
+        if self.fail:
+            raise LinkedInError("거부", self.fail)
+        self.posts.append((author_urn, text))
+        return f"urn:li:share:{len(self.posts)}"
+
+
+def test_linkedin_publish(tmp_path):
+    import os, stat, urllib.parse
+    root = make_root(tmp_path)
+    fake = FakeLinkedIn()
+    c = TestClient(create_app(root, backends={}, db_path=root / "data" / "t.db", topics=[], linkedin=fake))
+    assert c.get("/api/linkedin").json()["configured"] is False
+    assert c.get("/api/linkedin/connect", follow_redirects=False).status_code == 503
+    (root / "data" / "linkedin_app.json").write_text(json.dumps({"client_id": "cid", "client_secret": "sec"}))
+    r = c.get("/api/linkedin/connect", follow_redirects=False)
+    assert r.status_code == 307 and r.headers["location"].startswith("https://www.linkedin.com/oauth/v2/authorization?")
+    q = urllib.parse.parse_qs(urllib.parse.urlparse(r.headers["location"]).query)
+    assert q["scope"] == ["openid profile w_member_social"] and q["redirect_uri"][0].endswith("/api/linkedin/callback")
+    assert c.get("/api/linkedin/callback?code=good-code&state=forged").status_code == 400          # 위조 state
+    assert c.get("/api/linkedin/callback?error=user_cancelled_login").status_code == 400
+    assert c.get(f"/api/linkedin/callback?code=good-code&state={q['state'][0]}").status_code == 200
+    assert c.get(f"/api/linkedin/callback?code=good-code&state={q['state'][0]}").status_code == 400  # 같은 state 재사용
+    st = c.get("/api/linkedin").json()
+    assert st["connected"] and st["name"] == "테스트 계정"
+    tf = root / "data" / "linkedin_token.json"
+    assert stat.S_IMODE(os.stat(tf).st_mode) == 0o600
+    # 초안: 개인 메모 겹침 → 거부
+    d = root / "posts" / "p1"
+    d.mkdir(parents=True)
+    (d / "meta.json").write_text(json.dumps({"title": "t"}))
+    (root / "library/papers/2603.28052/notes.private.md").write_text("- 회사 일과 연결되는 아주 비밀스러운 문장입니다\n")
+    (d / "linkedin.md").write_text("**첫 줄 훅입니다.**\n\n회사 일과 연결되는 아주 비밀스러운 문장입니다\n#LLM")
+    sha = c.get("/api/posts/p1").json()["linkedin"]["sha"]
+    assert c.post("/api/posts/p1/linkedin", json={"sha": sha}).status_code == 409 and fake.posts == []
+    (d / "linkedin.md").write_text("**첫 줄 훅입니다.**\n\n- 항목 하나\n#LLM")
+    assert c.post("/api/posts/p1/linkedin", json={"sha": sha}).status_code == 409                  # 미리보기와 다름
+    sha = c.get("/api/posts/p1").json()["linkedin"]["sha"]
+    r = c.post("/api/posts/p1/linkedin", json={"sha": sha})
+    assert r.status_code == 200 and r.json()["url"] == "https://www.linkedin.com/feed/update/urn:li:share:1/"
+    assert fake.posts == [("urn:li:person:abc123", "첫 줄 훅입니다.\n\n• 항목 하나\n#LLM")]
+    assert c.get("/api/posts/p1").json()["published"]["linkedin"]["urn"] == "urn:li:share:1"
+    assert c.post("/api/posts/p1/linkedin", json={"sha": sha}).status_code == 409 and len(fake.posts) == 1   # 두 번 X
+    assert c.post("/api/posts/none/linkedin", json={"sha": "x"}).status_code == 404
+    # LinkedIn 이 401 → 토큰 지우고 다시 연결 안내
+    d2 = root / "posts" / "p2"
+    d2.mkdir()
+    (d2 / "linkedin.md").write_text("두 번째 글")
+    fake.fail = 401
+    sha2 = c.get("/api/posts/p2").json()["linkedin"]["sha"]
+    r = c.post("/api/posts/p2/linkedin", json={"sha": sha2})
+    assert r.status_code == 503 and "다시 연결" in r.json()["detail"] and not tf.exists()
+    # 만료된 토큰
+    tf.write_text(json.dumps({"access_token": "t", "expires_at": 1, "sub": "s", "name": "n"}))
+    assert c.get("/api/linkedin").json()["expired"] is True
+    assert c.post("/api/posts/p2/linkedin", json={"sha": sha2}).status_code == 503
+    assert c.post("/api/linkedin/disconnect").json()["connected"] is False and not tf.exists()
