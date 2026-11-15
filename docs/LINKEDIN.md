@@ -117,14 +117,21 @@ python -m paper_analyst.linkedin status    # 확인 (Client ID 는 앞뒤 몇 �
 | 무엇 | 어떻게 |
 |---|---|
 | 키·토큰 | 저장소 밖 `~/.config/side-projects/`, 권한 600. 입력은 숨김 입력 명령으로만 |
-| Claude Code 전반 | (권장) 전역 설정에 그 폴더 읽기·쓰기 거부 규칙 — 아래 절 |
+| Claude Code (이 저장소) | 저장소의 `.claude/settings.json` 거부 규칙 — 논문·웹 글 속 숨은 지시(프롬프트 인젝션)도 도구 단계에서 막힘 |
+| Claude Code (다른 작업) | (선택) 전역 설정에 같은 규칙 — 아래 절 |
 | 화면 속 AI 세션 | 게시 권한 없음 ("올려줘"라고 해도 안 올라감). 읽기는 저장소 안으로 제한, `~/.config` 는 명시 거부 |
 | 게시 | 사람이 확인 창에서 누를 때만. 점검 경고 남음 · 미리보기 뒤 초안 변경 · 이미 게시함 → 거부 |
 | 연결 요청 | 서버가 만든 일회용 state 만 받는다 (위조·재사용 거부, 10분 유효) |
 
-### (권장) Claude Code 가 키 폴더를 못 읽게 — 전역 거부 규칙
+### Claude Code 가 키 폴더를 못 읽게 — 프로젝트 설정 (기본으로 들어 있음)
 
-Claude Code 를 쓰는 다른 작업에서도 키가 읽히지 않게 `~/.claude/settings.json` 에:
+저장소의 `.claude/settings.json` 에 키 폴더 읽기·쓰기 거부 규칙이 들어 있다. **이 저장소 폴더에서 연 Claude Code 세션에만**
+적용되고 (화면 속 세션 포함), 각자의 전역 설정은 건드리지 않는다. 내용은 거부 규칙뿐이다 — 원치 않으면 그 파일을 지우면 된다.
+키 위치를 `SIDE_PROJECTS_CONFIG` 로 바꿨다면 이 파일의 경로도 같이 바꾼다 (규칙은 기본 경로만 덮는다).
+
+### (선택) 다른 작업에서도 막고 싶으면 — 전역 거부 규칙
+
+같은 규칙을 각자의 `~/.claude/settings.json` 에 넣으면 이 저장소 밖의 Claude Code 작업에서도 키가 읽히지 않는다:
 ```json
 "permissions": { "deny": [
   "Read(~/.config/side-projects/**)", "Edit(~/.config/side-projects/**)", "Bash(*.config/side-projects*)"
