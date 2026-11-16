@@ -99,6 +99,14 @@ def create_app(root: Path, *, backends: dict[str, ChatBackend] | None = None, db
     def paper(aid: str):
         return guard(svc.paper, aid)
 
+    @app.get("/api/papers/{aid}/source")
+    def paper_source(aid: str, ref: str):
+        return guard(svc.source, aid, ref)
+
+    @app.get("/api/papers/{aid}/images/{name}")
+    def paper_image(aid: str, name: str):
+        return FileResponse(guard(svc.source_image, aid, name))
+
     @app.put("/api/papers/{aid}/status")
     def set_status(aid: str, body: StatusIn):
         return guard(svc.set_status, aid, body.status)

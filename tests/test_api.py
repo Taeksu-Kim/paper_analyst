@@ -333,3 +333,35 @@ def test_post_other_project_checks(tmp_path):
     (d / "linkedin.md").write_text("깨끗한 글입니다. https://github.com/x/y 를 참고하세요.\n#LLM")
     ch = c.get("/api/posts/2026-11-16_other").json()["linkedin"]["check"]
     assert ch["private_hits"] == [] and ch["trace_hits"] == []
+
+def test_source_refs(env):
+    """notes 의 근거 표기 → 받아 둔 원문의 그 부분. 원문 없음 · 못 찾음 · 그림 경로 · 잘못된 입력."""
+    root, _, _, mk = env
+    c = mk()
+    assert c.get("/api/papers/2603.28052/source", params={"ref": "sec:4.1"}).json() == {"found": False, "reason": "no_parsed"}
+    d = root / "library" / "papers" / "2603.28052" / "parsed"
+    (d / "images").mkdir(parents=True)
+    (d / "images" / "f1.png").write_bytes(b"\x89PNG")
+    (d / "paper.md").write_text("# T\n\n## 4 Experiments\nintro\n\n### 4.1 Classification\nfour-one\n\n"
+                                "| a | b |\n|---|---|\n| 1 | 2 |\n\n> Table 3: What to show\n\n### 4.2 Math\nfour-two\n\n"
+                                "![](images/f1.png)\n\n> Figure 2: Loop\n\n## 5 Discussion\nfive\n\n"
+                                "## Appendix B Harnesses\nbee\n\n### B.1 Text\nbee-one\n\n```\n## 9 not a heading\n```\n")
+    g = lambda ref: c.get("/api/papers/2603.28052/source", params={"ref": ref})
+    r = g("sec:4.1").json()
+    assert r["found"] and r["title"] == "4.1 Classification" and "four-one" in r["html"] and "four-two" not in r["html"]
+    r = g("sec:4").json()                       # 장 = 하위 절까지, 다음 장 전까지
+    assert "four-two" in r["html"] and "five" not in r["html"]
+    r = g("sec:4.1-4.2").json()
+    assert "4.1 Classification ~ 4.2 Math" == r["title"] and "four-two" in r["html"] and "five" not in r["html"]
+    r = g("tab:3").json()
+    assert r["found"] and r["title"].startswith("Table 3") and "<table>" in r["html"]
+    r = g("fig:2").json()
+    assert r["found"] and "/api/papers/2603.28052/images/f1.png" in r["html"]
+    assert c.get("/api/papers/2603.28052/images/f1.png").content == b"\x89PNG"
+    assert c.get("/api/papers/2603.28052/images/..%2Fpaper.md").status_code == 404
+    assert g("app:B").json()["title"] == "Appendix B Harnesses" and "bee-one" in g("app:B").json()["html"]
+    assert g("app:B.1").json()["found"]
+    assert g("sec:9").json() == {"found": False, "reason": "not_found"}      # 코드 블록 안의 # 는 제목이 아니다
+    assert g("tab:99").json()["found"] is False
+    assert g("../../x").status_code == 400
+    assert c.get("/api/papers/9999.00000/source", params={"ref": "sec:1"}).status_code == 404

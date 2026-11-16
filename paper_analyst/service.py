@@ -112,6 +112,18 @@ class Service:
                 "memo": f["memo"], "can_memo": (self.root / "library" / "papers" / aid / "meta.json").is_file(),
                 "links": links, "suggest_links": suggest_links, "suggest_tags": suggest_tags}
 
+    def source(self, aid: str, ref: str) -> dict:
+        """notes 의 근거 표기(6.1절·표 1·부록 F) → 받아 둔 원문의 그 부분."""
+        if aid not in L.scan_papers(self.root):
+            raise NotFound(aid)
+        return L.source(self.root, aid, ref)
+
+    def source_image(self, aid: str, name: str):
+        try:
+            return L.source_image(self.root, aid, name)
+        except FileNotFoundError as e:
+            raise NotFound(name) from e
+
     # ── 발행 초안 ───────────────────────────────────────
     def posts(self) -> list[dict]:
         return PO.list_posts(self.root)
