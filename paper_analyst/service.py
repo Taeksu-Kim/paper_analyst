@@ -110,7 +110,19 @@ class Service:
                 "notes_html": L.to_html(f["notes"]) if f["notes"] else "",
                 "private_html": L.to_html(f["private"]) if f["private"] else "",
                 "memo": f["memo"], "can_memo": (self.root / "library" / "papers" / aid / "meta.json").is_file(),
-                "links": links, "suggest_links": suggest_links, "suggest_tags": suggest_tags}
+                "links": links, "suggest_links": suggest_links, "suggest_tags": suggest_tags,
+                "used_in": self._used_in(aid, papers)}
+
+    def _used_in(self, aid: str, papers: dict) -> dict:
+        """이 논문을 쓴 곳 — 아이디어·목록 문서(id 또는 짧은 이름이 나옴)와 발행 초안(meta.sources)."""
+        docs = []
+        for d in L.scan_docs(self.root):
+            x = L.read_doc(self.root, d["kind"], d["name"])
+            if aid in L.mentions(x["text"] + "\n" + x["private"], "", papers):
+                docs.append({k: d.get(k, False) for k in ("kind", "name", "title", "private_only")})
+        posts = [{"slug": p["slug"], "title": p["title"], "published": p["published"]}
+                 for p in PO.list_posts(self.root) if any(L.has_id(s, aid) for s in p["sources"])]
+        return {"docs": docs, "posts": posts}
 
     def source(self, aid: str, ref: str) -> dict:
         """notes 의 근거 표기(6.1절·표 1·부록 F) → 받아 둔 원문의 그 부분."""

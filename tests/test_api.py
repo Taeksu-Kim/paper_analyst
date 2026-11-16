@@ -365,3 +365,25 @@ def test_source_refs(env):
     assert g("tab:99").json()["found"] is False
     assert g("../../x").status_code == 400
     assert c.get("/api/papers/9999.00000/source", params={"ref": "sec:1"}).status_code == 404
+
+
+def test_used_in(env):
+    """논문 → 그 논문을 쓴 아이디어(id 또는 짧은 이름)·목록·발행 초안(meta.sources, 버전 붙어도)."""
+    root, _, _, mk = env
+    c = mk()
+    assert c.get("/api/papers/2603.28052").json()["used_in"] == {"docs": [], "posts": []}
+    (root / "ideas").mkdir()
+    (root / "ideas" / "x.md").write_text("# 생각 X\n출발점: Meta-Harness 의 원본 기록\n")
+    (root / "ideas" / "y.md").write_text("# 무관\n2603.280521 는 다른 번호\n")
+    (root / "lists" / "b.private.md").write_text("# 비공개 목록\n- 2603.28052\n")
+    for slug, meta in [("2026-11-15_a", {"title": "글 A", "sources": ["2603.28052v2", "ideas/x.md"],
+                                          "published": {"linkedin": {"at": "2026-11-15 20:16:44 KST"}}}),
+                       ("2026-11-16_b", {"title": "글 B", "sources": ["2603.28052"]}),
+                       ("2026-11-16_c", {"title": "글 C", "sources": ["2603.280520"]})]:
+        (root / "posts" / slug).mkdir(parents=True)
+        (root / "posts" / slug / "meta.json").write_text(json.dumps(meta, ensure_ascii=False))
+    u = c.get("/api/papers/2603.28052").json()["used_in"]
+    assert sorted((d["kind"], d["name"]) for d in u["docs"]) == [("ideas", "x"), ("lists", "b.private")]
+    assert [d["private_only"] for d in u["docs"] if d["kind"] == "lists"] == [True]
+    assert [(x["title"], bool(x["published"])) for x in u["posts"]] == [("글 B", False), ("글 A", True)]
+    assert c.get("/api/papers/2604.15597").json()["used_in"] == {"docs": [], "posts": []}
