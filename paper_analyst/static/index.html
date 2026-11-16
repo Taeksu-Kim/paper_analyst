@@ -34,6 +34,7 @@ body { font: var(--fs-body)/1.6 var(--font); color: var(--text); background: var
 button, input, select, textarea { font: inherit; color: inherit; }
 ::selection { background: var(--accent-soft); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+[hidden] { display: none !important; }   /* display 를 정한 클래스가 hidden 속성을 덮지 않게 */
 a { color: var(--accent); }
 
 /* 셸 */
@@ -259,6 +260,22 @@ button.chip:hover { border-color: var(--line-strong); color: var(--text); }
 .fresh-res .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 ul.cites { margin: 2px 0 0; padding-left: 18px; font-size: var(--fs-label); }
 ul.cites .inf { color: var(--accent); }
+.res { display: inline-block; font-size: var(--fs-cap); font-weight: 700; border-radius: 999px; padding: 0 8px; margin-right: 6px; border: 1px solid currentColor; white-space: nowrap; }
+.res-worked { color: var(--ok); } .res-no { color: var(--err); } .res-unknown { color: var(--text-2); }
+.tried { font-size: var(--fs-label); margin: -6px 0 14px; padding: 6px 12px; border-left: 2px solid var(--line-strong); }
+.tried .k { font-size: var(--fs-cap); font-weight: 700; color: var(--text-3); margin-right: 8px; }
+.ap-list { list-style: none; margin: 0 0 8px; padding: 0; }
+.ap-list li { padding: 6px 0; border-bottom: 1px solid var(--line); font-size: var(--fs-label); }
+.ap-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ap-top .btn { margin-left: auto; }
+.ap-f { margin-top: 2px; color: var(--text-2); }
+.ap-form { display: grid; gap: 8px; margin-top: 8px; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: var(--radius-lg); background: var(--panel-2); font-size: var(--fs-label); max-width: 560px; }
+.ap-form > label { display: grid; gap: 2px; font-weight: 600; }
+.ap-form input:not([type=radio]) { padding: 5px 8px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--panel); color: var(--text); font: inherit; font-weight: 400; min-width: 0; }
+.ap-form fieldset { border: 0; padding: 0; margin: 0; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.ap-form legend { font-weight: 600; padding: 0; margin-bottom: 2px; float: left; margin-right: 8px; }
+.ap-form .radio { display: inline-flex; gap: 4px; align-items: center; min-height: 24px; cursor: pointer; }
+.ap-form .row { display: flex; gap: 6px; }
 .inline-confirm { border: 1px solid var(--line-strong); border-radius: var(--radius-lg); background: var(--panel-2); padding: 10px 14px; margin: -6px 0 14px; font-size: var(--fs-label); }
 .inline-confirm p { margin: 0 0 8px; line-height: 1.6; }
 .inline-confirm .row { display: flex; gap: 6px; }
@@ -526,6 +543,7 @@ async function showPaper(id, quiet = false) {
       <div class="row"><button class="btn primary" data-ask="${REREAD_ASK}" id="reread-go">시작</button>
       <button class="btn quiet" id="reread-cancel">취소</button></div></div>
     ${p.conclusion ? `<div class="concl"><span class="k">결론</span><span class="v">${esc(p.conclusion)}</span></div>` : ''}
+    ${triedLine(p.applied)}
     ${paperExtras(p)}
     ${p.notes_html ? `<div class="md" id="notes">${p.notes_html}</div>`
       : `<div class="empty" style="padding:8px 0"><h2>아직 정리되지 않았습니다</h2>
@@ -540,6 +558,39 @@ const LINK_TEXT = {   // 방향 있는 연결의 읽는 법 (out = 이 논문 �
   out: { follows: '이 논문은 다음의 후속', refutes: '이 논문이 반박', agrees: '같은 방향', related: '관련' },
   in: { follows: '이 논문의 후속', refutes: '이 논문을 반박', agrees: '같은 방향', related: '관련' },
 };
+const RES_NAME = { worked: '효과 있음', no: '효과 없음', unknown: '아직 모름' };
+const resBadge = r => `<span class="res res-${esc(r)}">${RES_NAME[r] || r}</span>`;
+function triedLine(recs) {   // 결론 옆 '써 보니' — 가장 최근 기록 하나 + 나머지 수
+  if (!recs || !recs.length) return '';
+  const r = recs[0];
+  return `<div class="tried"><span class="k">써 보니</span>${resBadge(r.result)} ${esc(r.where)} <span class="hint">${esc(r.date)}</span>${r.note ? ` — ${esc(r.note)}` : ''}${recs.length > 1 ? ` <span class="hint">외 ${recs.length - 1}건</span>` : ''}</div>`;
+}
+function appliedHtml(p) {
+  if (!p.can_memo) return '';
+  const recs = p.applied || [];
+  const today = new Date(Date.now() - new Date().getTimezoneOffset() * 6e4).toISOString().slice(0, 10);
+  return `<div class="sec applied"><div class="sec-h">적용 기록 <span class="hint" style="font-weight:400">비공개 — applied.private.md, git 제외</span></div>
+    ${recs.length ? `<ul class="ap-list">${recs.map(r => `<li>
+        <div class="ap-top">${resBadge(r.result)}<b>${esc(r.where)}</b><span class="hint">${esc(r.date)}</span>
+          <button class="btn quiet" data-apdel="${esc(r.id)}" aria-label="${esc(r.where)} 기록 지우기">지우기</button></div>
+        ${r.took ? `<div class="ap-f"><span class="hint">가져간 것</span> ${esc(r.took)}</div>` : ''}
+        ${r.note ? `<div class="ap-f">${esc(r.note)}</div>` : ''}</li>`).join('')}</ul>`
+      : '<p class="hint" style="margin:0 0 6px">어디에 적용했고 결과가 어땠는지 남기면 결론 옆에 <b>써 보니</b>로 보이고, 비교 탭에도 나옵니다.</p>'}
+    <button class="btn" id="ap-open" aria-expanded="false" aria-controls="ap-form">기록 추가</button>
+    <form class="ap-form" id="ap-form" hidden>
+      <label>어디에 <input id="ap-where" required maxlength="120" placeholder="프로젝트·작업 이름"></label>
+      <label>가져간 것 <input id="ap-took" maxlength="300" placeholder="결론의 '가져갈 것' 중 무엇을"></label>
+      <fieldset><legend>결과</legend>${Object.entries(RES_NAME).map(([k, n]) => `<label class="radio"><input type="radio" name="ap-res" value="${k}"${k === 'unknown' ? ' checked' : ''}> ${n}</label>`).join('')}</fieldset>
+      <label>한 줄 <input id="ap-note" maxlength="300" placeholder="무엇이 어떻게 됐나 (선택)"></label>
+      <label>날짜 <input id="ap-date" type="date" value="${today}"></label>
+      <div class="row"><button class="btn primary" type="submit">저장</button><button class="btn quiet" type="button" id="ap-cancel">취소</button></div>
+    </form></div>`;
+}
+function openApplied(open) {
+  const f = $('#ap-form'); if (!f) return;
+  f.hidden = !open; $('#ap-open').setAttribute('aria-expanded', open); $('#ap-open').hidden = open;
+  if (open) { f.scrollIntoView({ block: 'nearest' }); $('#ap-where').focus(); } else $('#ap-open').focus();
+}
 function daysAgo(d) { const n = Math.floor((Date.now() - new Date(d + 'T00:00:00')) / 864e5); return n <= 0 ? '오늘' : `${n}일 전`; }
 function freshHtml(p) {
   const f = p.fresh; if (!f) return '';
@@ -605,7 +656,7 @@ function paperExtras(p) {
         <textarea id="memo" aria-label="내 메모" placeholder="이 논문에서 시험해 볼 것, 반론, 내 작업과의 연결…">${esc(p.memo)}</textarea>
         <div class="row"><span class="hint" id="memo-st"></span><button class="btn" id="memo-save">메모 저장</button></div></details>`
     : '';
-  return freshHtml(p) + tags + links + used + memo;
+  return freshHtml(p) + appliedHtml(p) + tags + links + used + memo;
 }
 async function saveTags(tags) {
   try { await api(`/api/papers/${S.paper.id}/tags`, { method: 'PUT', body: { tags } }); await loadLib(); showPaper(S.paper.id, true); }
@@ -646,6 +697,7 @@ async function renderCompare() {
         <button class="btn quiet" data-uncmp="${esc(r.id)}">비교에서 빼기</button></th>`).join('')}</tr></thead>
       <tbody><tr><th class="row">판정</th>${rows.map(r => `<td class="verdict">${esc(r.verdict) || '<span class="empty-cell">—</span>'}</td>`).join('')}</tr>
       ${LABELS.map(lab => `<tr><th class="row">${lab}</th>${rows.map(r => `<td>${cell(r, lab)}</td>`).join('')}</tr>`).join('')}
+      ${rows.some(r => (r.applied || []).length) ? `<tr><th class="row">써 보니</th>${rows.map(r => `<td>${(r.applied || []).map(x => `<div>${resBadge(x.result)} ${esc(x.where)} <span class="hint">${esc(x.date)}</span>${x.note ? `<div>${esc(x.note)}</div>` : ''}</div>`).join('') || '<span class="empty-cell">—</span>'}</td>`).join('')}</tr>` : ''}
       ${extra ? `<tr><th class="row">그 밖</th>${rows.map(r => `<td>${cell(r, null)}</td>`).join('')}</tr>` : ''}
       </tbody></table></div>`;
 }
@@ -1060,6 +1112,15 @@ function setView(v) {
 }
 
 /* ── 이벤트 연결 ──────────────────────────── */
+document.addEventListener('submit', async e => {
+  if (e.target.id !== 'ap-form') return;
+  e.preventDefault();
+  const body = { where: $('#ap-where').value, took: $('#ap-took').value, note: $('#ap-note').value, date: $('#ap-date').value,
+                 result: (document.querySelector('input[name="ap-res"]:checked') || {}).value || 'unknown' };
+  try { await api(`/api/papers/${encodeURIComponent(S.paper.id)}/applied`, { method: 'POST', body });
+    await loadLib(); await showPaper(S.paper.id, true); toast('적용 기록을 남겼습니다'); $('#ap-open')?.focus(); }
+  catch (err) { toast(err.message); }
+});
 document.addEventListener('click', async ev => {
   const sum = ev.target.closest('#pub-done > summary');   // 사용자가 직접 접고 편 상태만 기억
   if (sum) S.pubDoneOpen = !sum.parentElement.open;
@@ -1090,10 +1151,16 @@ document.addEventListener('click', async ev => {
   if (t.dataset.uncmp) { S.cmp = S.cmp.filter(x => x !== t.dataset.uncmp); saveCmp(); return renderCompare(); }
   if (t.dataset.st !== undefined) {
     try { await api(`/api/papers/${S.sel.id}/status`, { method: 'PUT', body: { status: t.dataset.st || null } });
-      await loadLib(); showPaper(S.sel.id, true); toast(t.dataset.st ? `${t.textContent}(으)로 표시했습니다` : '파일 기준 상태로 되돌렸습니다'); }
+      await loadLib(); await showPaper(S.sel.id, true);
+      if (t.dataset.st === 'applied' && !(S.paper.applied || []).length) { openApplied(true); toast('적용함으로 표시했습니다 — 어디에 적용했는지 남길 수 있습니다'); }
+      else toast(t.dataset.st ? `${t.textContent}(으)로 표시했습니다` : '파일 기준 상태로 되돌렸습니다'); }
     catch (e) { toast(e.message); } return;
   }
   if (t.dataset.ref) return toggleSource(t);
+  if (t.dataset.apdel) {
+    try { await api(`/api/papers/${encodeURIComponent(S.paper.id)}/applied/${encodeURIComponent(t.dataset.apdel)}`, { method: 'DELETE' });
+      toast('적용 기록을 지웠습니다'); await showPaper(S.paper.id, true); $('#ap-open')?.focus(); } catch (e) { toast(e.message); } return;
+  }
   if (t.dataset.ask) { if (t.id === 'reread-go') $('#reread-box').hidden = true; return send(t.dataset.ask); }
   if (t.dataset.cv) { S.candView = t.dataset.cv; return loadCand(); }
   if (t.dataset.abs) {
@@ -1126,6 +1193,8 @@ document.addEventListener('click', async ev => {
     case 'tab-cmp': return setView('cmp');
     case 'profile': return toggleProfile();
     case 'src-close': return closeSource(true);
+    case 'ap-open': return openApplied(true);
+    case 'ap-cancel': return openApplied(false);
     case 'fresh-check': {
       t.disabled = true; t.textContent = '확인 중…';
       try { await api(`/api/papers/${encodeURIComponent(S.paper.id)}/check`, { method: 'POST' }); await showPaper(S.paper.id, true); $('#fresh-check')?.focus(); }
@@ -1200,6 +1269,7 @@ function toggleProfile(open) {
 document.addEventListener('click', e => {   // 밖을 누르면 닫는다
   if (!$('#profile-pop').hidden && !e.target.closest('#profile-pop, #profile')) toggleProfile(false);
 });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && e.target.closest && e.target.closest('#ap-form')) { e.stopImmediatePropagation(); openApplied(false); } });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && e.target.closest && e.target.closest('#src-box')) { e.stopImmediatePropagation(); closeSource(true); } });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#profile-pop').hidden) { toggleProfile(false); $('#profile').focus(); } });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { $('.menu')?.remove(); document.body.classList.remove('chat-open'); } });

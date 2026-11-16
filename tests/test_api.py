@@ -413,3 +413,35 @@ def test_fresh_check(tmp_path):
     r = c.post("/api/papers/2603.28052/check").json()
     assert not r["new_version"] and r["new_citing"] == [] and r["citations_now"] is None and r["errors"] == ["S2: HTTP 429"]
     assert c.post("/api/papers/9999.00000/check").status_code == 404
+
+
+def test_applied_log(env):
+    """적용 기록: 비공개 파일로 쓰고 읽기 · 최신순 · 상태 '적용함' · 비교에 · 지우기 · 입력 검사 · 발행 점검의 개인 메모 대상."""
+    root, _, _, mk = env
+    c = mk()
+    u = "/api/papers/2603.28052/applied"
+    assert c.get("/api/papers/2603.28052").json()["applied"] == []
+    assert c.post(u, json={"where": " ", "date": "2026-11-16"}).status_code == 400
+    assert c.post(u, json={"where": "x", "result": "great", "date": "2026-11-16"}).status_code == 400
+    assert c.post(u, json={"where": "x", "date": "11/16"}).status_code == 400
+    p = c.post(u, json={"where": "사내 평가 파이프라인", "took": "원본 trace 를 그대로", "result": "worked",
+                        "note": "요약본보다 실패 원인을 빨리 찾음", "date": "2026-11-10"}).json()
+    assert p["status"] == "applied" and p["applied"][0]["result"] == "worked"
+    p = c.post(u, json={"where": "에이전트 B", "date": "2026-11-16"}).json()
+    assert [r["where"] for r in p["applied"]] == ["에이전트 B", "사내 평가 파이프라인"] and p["applied"][0]["result"] == "unknown"
+    f = root / "library" / "papers" / "2603.28052" / "applied.private.md"
+    text = f.read_text()
+    assert "## 2026-11-10 · 사내 평가 파이프라인" in text and "- 결과: 효과 있음" in text
+    # 사람이 직접 고쳐 써도 읽힌다 (id 없는 기록)
+    f.write_text(text + "\n## 2026-11-01 · 손으로 쓴 기록\n- 결과: 효과 없음\n- 한 줄: 안 맞음\n")
+    recs = c.get("/api/papers/2603.28052").json()["applied"]
+    assert recs[-1]["where"] == "손으로 쓴 기록" and recs[-1]["result"] == "no" and recs[-1]["id"]
+    cmp = c.get("/api/compare", params={"ids": "2603.28052"}).json()
+    assert len(cmp[0]["applied"]) == 3
+    # 공개 글에 적용 기록 문장이 섞이면 발행 점검이 잡는다
+    from paper_analyst import post as PO
+    hits = PO.check("요약본보다 실패 원인을 빨리 찾음\n", root, "linkedin")["private_hits"]
+    assert any("applied.private.md" in h["source"] for h in hits)
+    rid = recs[0]["id"]
+    assert [r["where"] for r in c.delete(f"{u}/{rid}").json()["applied"]] == ["사내 평가 파이프라인", "손으로 쓴 기록"]
+    assert c.delete(f"{u}/nope").status_code == 404

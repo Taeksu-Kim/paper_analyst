@@ -305,3 +305,49 @@ def source_image(root: Path, aid: str, name: str) -> Path:
     if not f.is_file():
         raise FileNotFoundError(name)
     return f
+
+
+# ── 적용 기록 (applied.private.md — 업무 맥락이라 git 제외, 발행 점검의 개인 메모 겹침 대상) ──
+APPLIED_RESULTS = {"worked": "효과 있음", "no": "효과 없음", "unknown": "아직 모름"}
+_APPLIED_HEAD = re.compile(r"^## (\d{4}-\d{2}-\d{2}) · (.+)$")
+_APPLIED_FIELD = re.compile(r"^- (id|결과|가져간 것|한 줄): ?(.*)$")
+
+
+def read_applied(d: Path) -> list[dict]:
+    """'## 날짜 · 어디에' 아래 '- 결과: …' 줄들. 사람이 고쳐 써도 읽히게 느슨하게 (모르는 줄은 무시)."""
+    f = d / "applied.private.md"
+    if not f.is_file():
+        return []
+    out: list[dict] = []
+    names = {v: k for k, v in APPLIED_RESULTS.items()}
+    for line in f.read_text(encoding="utf-8").split("\n"):
+        h = _APPLIED_HEAD.match(line.strip())
+        if h:
+            out.append({"id": "", "date": h[1], "where": h[2].strip(), "took": "", "result": "unknown", "note": ""})
+            continue
+        m = _APPLIED_FIELD.match(line.strip())
+        if m and out:
+            k, v = m[1], m[2].strip()
+            if k == "결과":
+                out[-1]["result"] = names.get(v, "unknown")
+            else:
+                out[-1][{"id": "id", "가져간 것": "took", "한 줄": "note"}[k]] = v
+    for i, r in enumerate(out):
+        r["id"] = r["id"] or f"r{i}"
+    return sorted(out, key=lambda r: r["date"], reverse=True)
+
+
+def write_applied(d: Path, title: str, recs: list[dict]) -> None:
+    f = d / "applied.private.md"
+    if not recs:
+        f.unlink(missing_ok=True)
+        return
+    L = [f"# 적용 기록 — {title}", "", "화면의 '적용 기록'이 쓰는 파일 (git 제외). 형식을 지키면 직접 고쳐도 된다.", ""]
+    for r in sorted(recs, key=lambda r: r["date"], reverse=True):
+        L += [f"## {r['date']} · {r['where']}", f"- id: {r['id']}", f"- 결과: {APPLIED_RESULTS[r['result']]}"]
+        L += [f"- 가져간 것: {r['took']}"] if r.get("took") else []
+        L += [f"- 한 줄: {r['note']}"] if r.get("note") else []
+        L.append("")
+    tmp = f.with_suffix(".tmp")
+    tmp.write_text("\n".join(L), encoding="utf-8")
+    tmp.replace(f)
