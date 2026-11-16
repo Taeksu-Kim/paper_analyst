@@ -387,3 +387,29 @@ def test_used_in(env):
     assert [d["private_only"] for d in u["docs"] if d["kind"] == "lists"] == [True]
     assert [(x["title"], bool(x["published"])) for x in u["posts"]] == [("글 B", False), ("글 A", True)]
     assert c.get("/api/papers/2604.15597").json()["used_in"] == {"docs": [], "posts": []}
+
+
+def test_fresh_check(tmp_path):
+    """확인 시점(정리·외부 평가·받은 판) + '다시 확인': 새 판·인용 증가·새로 인용한 논문(외부 평가 때 없던 것)만."""
+    root = make_root(tmp_path)
+    d = root / "library" / "papers" / "2603.28052"
+    m = json.loads((d / "meta.json").read_text()); m["version"] = "v1"; (d / "meta.json").write_text(json.dumps(m))
+    (d / "notes.md").write_text("# Meta-Harness\n\n- 정리 2026-11-14 KST\n\n## 결론\n**원본.**\n")
+    (d / "external.json").write_text(json.dumps({"fetched_at": "2026-11-14T02:00:00+00:00",
+                                                 "s2": {"citations": 100, "contexts": [{"title": "Old"}]}}))
+    calls = []
+    res = {"version": "v3", "citations": 130, "citing": [{"title": "Old", "year": 2026, "influential": True},
+                                                          {"title": "New B", "year": 2025, "influential": False},
+                                                          {"title": "New A", "year": 2026, "influential": True}]}
+    c = TestClient(create_app(root, backends={}, db_path=root / "data" / "t.db", check_fn=lambda a: calls.append(a) or res))
+    f = c.get("/api/papers/2603.28052").json()["fresh"]
+    assert f == {"noted": "2026-11-14", "version": "v1", "ext_at": "2026-11-14", "citations": 100, "check": None}
+    assert c.get("/api/papers/2604.15597").json()["fresh"] is None          # 정리 전 논문은 없음
+    r = c.post("/api/papers/2603.28052/check").json()
+    assert calls == ["2603.28052"] and r["new_version"] and (r["citations_then"], r["citations_now"]) == (100, 130)
+    assert [x["title"] for x in r["new_citing"]] == ["New A", "New B"] and r["new_citing_total"] == 2 and r["errors"] == []
+    assert c.get("/api/papers/2603.28052").json()["fresh"]["check"]["version_now"] == "v3"   # check.json 으로 남는다
+    res.clear(); res.update({"version": "v1", "s2_error": "S2: HTTP 429"})
+    r = c.post("/api/papers/2603.28052/check").json()
+    assert not r["new_version"] and r["new_citing"] == [] and r["citations_now"] is None and r["errors"] == ["S2: HTTP 429"]
+    assert c.post("/api/papers/9999.00000/check").status_code == 404

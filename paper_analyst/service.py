@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import re
 import threading
 import time
 import urllib.parse
@@ -46,8 +47,11 @@ class Service:
     def __init__(self, root: Path, db_path: Path, backends: dict[str, ChatBackend] | None = None,
                  abstract_fn: Callable[[str], str] | None = None,
                  fetch_fn: Callable[[str], dict] | None = None, topics: list[str] | None = None,
-                 linkedin: "LI.LinkedInClient | None" = None, config_dir: Path | None = None) -> None:
+                 linkedin: "LI.LinkedInClient | None" = None, config_dir: Path | None = None,
+                 check_fn: Callable[[str], dict] | None = None) -> None:
         self.root = root
+        self.check_fn = check_fn or _check_online
+        self._check_lock = threading.Lock()
         self.li = linkedin or LI.HttpLinkedIn()
         self.li_store = LI.Store(config_dir)
         self._oauth_states: dict[str, float] = {}
@@ -111,7 +115,53 @@ class Service:
                 "private_html": L.to_html(f["private"]) if f["private"] else "",
                 "memo": f["memo"], "can_memo": (self.root / "library" / "papers" / aid / "meta.json").is_file(),
                 "links": links, "suggest_links": suggest_links, "suggest_tags": suggest_tags,
-                "used_in": self._used_in(aid, papers)}
+                "used_in": self._used_in(aid, papers), "fresh": self._fresh(aid, f) if f["notes"] else None}
+
+    # ── 결론의 확인 시점 · 다시 확인 (누를 때만, Claude 없이 arXiv·S2 조회) ──
+    def _paper_dir(self, aid: str) -> Path:
+        return self.root / "library" / "papers" / aid
+
+    def _ext(self, aid: str) -> dict:
+        try:
+            return json.loads((self._paper_dir(aid) / "external.json").read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return {}
+
+    def _fresh(self, aid: str, f: dict) -> dict:
+        m = re.search(r"정리 (\d{4}-\d{2}-\d{2})", f["notes"])
+        noted = m[1] if m else time.strftime("%Y-%m-%d", time.localtime((self._paper_dir(aid) / "notes.md").stat().st_mtime))
+        ext = self._ext(aid)
+        s2 = ext.get("s2") or {}
+        try:
+            check = json.loads((self._paper_dir(aid) / "check.json").read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            check = None
+        return {"noted": noted, "version": f["meta"].get("version"), "ext_at": (ext.get("fetched_at") or "")[:10],
+                "citations": s2.get("citations"), "check": check}
+
+    def check_fresh(self, aid: str) -> dict:
+        """정리 이후 바뀐 것: arXiv 새 버전, 인용 수, 새로 인용한 논문(외부 평가 조회 때 없던 것). 결과는 check.json."""
+        if aid not in L.scan_papers(self.root):
+            raise NotFound(aid)
+        if not self._check_lock.acquire(blocking=False):
+            raise Busy("다른 논문을 확인하는 중입니다")
+        try:
+            meta = L.paper_files(self.root, aid)["meta"]
+            s2_then = self._ext(aid).get("s2") or {}
+            seen = {c.get("title") for c in s2_then.get("contexts", [])}
+            r = self.check_fn(aid)
+        finally:
+            self._check_lock.release()
+        vnum = lambda v: int(v[1:]) if isinstance(v, str) and re.fullmatch(r"v\d+", v) else 0
+        new_citing = [c for c in r.get("citing", []) if c.get("title") and c["title"] not in seen] if seen or s2_then else []
+        new_citing.sort(key=lambda c: (not c.get("influential"), -(c.get("year") or 0)))
+        out = {"checked_at": time.strftime("%Y-%m-%d %H:%M"), "version_then": meta.get("version"), "version_now": r.get("version"),
+               "new_version": vnum(r.get("version")) > vnum(meta.get("version")) > 0,
+               "citations_then": s2_then.get("citations"), "citations_now": r.get("citations"),
+               "new_citing": new_citing[:5], "new_citing_total": len(new_citing),
+               "errors": [e for e in (r.get("version_error"), r.get("s2_error")) if e]}
+        (self._paper_dir(aid) / "check.json").write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
+        return out
 
     def _used_in(self, aid: str, papers: dict) -> dict:
         """이 논문을 쓴 곳 — 아이디어·목록 문서(id 또는 짧은 이름이 나옴)와 발행 초안(meta.sources)."""
@@ -524,6 +574,26 @@ def _abstract_online(aid: str) -> str:
         return " ".join((F.fetch_meta(aid, None).get("abstract") or "").split())
     except Exception:  # 네트워크·형식 오류 — 화면은 "초록을 못 가져옴"으로
         return ""
+
+
+def _check_online(aid: str) -> dict:
+    """arXiv 최신 버전 1회 + S2 인용 2회. 실패는 오류 문자열로 (화면이 그대로 보여 준다)."""
+    from paper_analyst import enrich as E
+    from paper_analyst import fetch as F
+    out: dict = {}
+    try:
+        m = F.fetch_meta(aid, None)
+        out["version"] = m.get("version")
+    except Exception as e:   # noqa: BLE001 — 네트워크·파싱 무엇이든 화면에 이유로
+        out["version_error"] = f"arXiv: {str(e)[:80]}"
+    E._s2_down = False       # 서버는 오래 떠 있다 — 예전 429 를 계속 붙잡지 않는다
+    s = E.s2(aid)
+    if "error" in s:
+        out["s2_error"] = f"S2: {s['error']}"
+    else:
+        out.update(citations=s.get("citations"), influential=s.get("influential"),
+                   citing=[{"title": c["title"], "year": c["year"], "influential": c["influential"]} for c in s.get("contexts", [])])
+    return out
 
 
 def _fetch_paper(aid: str) -> dict:
