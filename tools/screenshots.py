@@ -34,6 +34,12 @@ for sub in ("lists", "ideas", "library/candidates", "posts"):
     src = ROOT / sub
     if src.exists():
         shutil.copytree(src, TMP / sub, ignore=shutil.ignore_patterns("*.private.md"), dirs_exist_ok=True)
+# 외부 평가는 날짜·인용 수만 (external.json 은 제3자 댓글 원문이 있어 git 제외 — '확인 시점' 줄에 쓰이는 값만 옮긴다)
+for d in (ROOT / "library" / "papers").iterdir():
+    if (d / "external.json").exists():
+        e = json.loads((d / "external.json").read_text(encoding="utf-8"))
+        slim = {"fetched_at": e.get("fetched_at"), "s2": {"citations": (e.get("s2") or {}).get("citations")}}
+        (TMP / "library" / "papers" / d.name / "external.json").write_text(json.dumps(slim), encoding="utf-8")
 assert not list(TMP.rglob("*.private.md")), "개인 메모가 복사됨"
 # 캡처할 글 둘만 남긴다: 소개 글은 '게시 전'으로, LLMs Get Lost 는 '게시한 글'로 (계정 이름은 지운다)
 KEEP = {"2026-11-15_paper-analyst-intro": "todo", "2026-11-15_llms-get-lost": "done"}
