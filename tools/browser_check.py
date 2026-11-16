@@ -218,6 +218,19 @@ with sync_playwright() as p:
     check("논문: 결론 블록 + notes 렌더 (표)", page.locator("article .md table").count() >= 1)
     check("논문: 상태 한 묶음(자동|적용함|보류) + arXiv 는 메타 줄 링크",
           page.locator("article .seg button[data-st]").count() == 3 and page.locator("article .meta a[href*='arxiv.org']").count() == 1)
+    # 쓰인 곳 — 판정기 초안(fixture)이 쓴 논문
+    page.click("#lib-list button[data-paper='2603.28052']")
+    page.wait_for_function("document.querySelector('article h1') && document.querySelector('article h1').innerText.includes('Meta-Harness')")
+    used = page.locator(".sec", has_text="쓰인 곳").inner_text()
+    check("쓰인 곳: 아이디어·글(게시 전)", "아이디어" in used and "판정기는 한 숫자로" in used and "게시 전" in used and used.index("판정기") < used.index("아이디어"), used[:120])
+    page.click("button[data-gopost='2026-11-16_judge']")
+    page.wait_for_selector(".pub-body")
+    check("쓰인 곳: 글을 누르면 발행 탭의 그 글", page.get_attribute("#tab-pub", "aria-selected") == "true"
+          and page.get_attribute("button.pub-row[data-post='2026-11-16_judge']", "aria-pressed") == "true")
+    page.click("#tab-lib")
+    page.click("#lib-list button[data-paper='2605.15184']")
+    page.wait_for_selector("article .concl")
+    page.wait_for_function("document.querySelector('article h1') && document.querySelector('article h1').innerText.includes('Grep')")
     # 근거 → 원문. 이 논문은 원문을 복사하지 않았다 → 받는 법 안내
     refs = page.locator("#notes button.ref")
     check("근거: notes 의 절·표 표기가 버튼으로", refs.count() >= 3, str(refs.count()))

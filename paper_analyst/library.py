@@ -89,13 +89,18 @@ def short_name(title: str) -> str:
     return name.strip()
 
 
+def has_id(text: str, aid: str) -> bool:
+    """arXiv id 가 따로 나오는지 ('2603.280521' 안의 '2603.28052' 는 아니다). 버전(v2)은 붙어도 된다."""
+    return re.search(rf"(?<![\d.]){re.escape(aid)}(?:v\d+)?(?![\d])", text) is not None
+
+
 def mentions(md: str, self_id: str, papers: dict[str, "Paper"]) -> list[str]:
     """notes 본문에 나온 다른 서재 논문 (arXiv id 또는 짧은 이름). 연결 제안에 쓴다."""
     out = []
     for p in papers.values():
         if p.id == self_id:
             continue
-        if p.id in md or _named(md, p.title):
+        if has_id(md, p.id) or _named(md, p.title):
             out.append(p.id)
     return out
 

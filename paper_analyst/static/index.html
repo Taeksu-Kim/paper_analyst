@@ -134,6 +134,7 @@ button.tag.sug:hover { border-color: var(--accent); color: var(--accent); }
 .links button.go { border: 0; background: none; padding: 0; color: var(--accent); cursor: pointer; text-align: left; font-weight: 500; }
 .links button.go:hover { text-decoration: underline; }
 .links .note { color: var(--text-3); font-size: var(--fs-cap); }
+.links .st { color: var(--text-3); font-size: var(--fs-cap); white-space: nowrap; }
 .linkform { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
 .linkform select { padding: 4px 6px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--panel); max-width: 100%; font-size: var(--fs-label); }
 .linkform select#link-dst { flex: 1 1 200px; min-width: 0; width: 100%; }
@@ -549,12 +550,22 @@ function paperExtras(p) {
         <select id="link-dst" aria-label="연결할 논문"><option value="">연결할 논문 고르기</option>${others.map(x => `<option value="${esc(x.id)}">${esc(x.title.slice(0, 70))}</option>`).join('')}</select>
         <button class="btn" id="link-add">연결</button></div>` : (p.links.length ? '' : '<span class="hint">서재에 연결할 다른 논문이 없습니다</span>')}
     </div>`;
+  const u = p.used_in || { docs: [], posts: [] };
+  const KIND_NAME = { ideas: '아이디어', lists: '목록' };
+  const used = `<div class="sec"><div class="sec-h">쓰인 곳</div>
+    ${u.docs.length || u.posts.length ? `<ul class="links">
+      ${u.posts.map(x => { const at = Object.values(x.published || {})[0];
+        return `<li><span class="kind">글</span>
+        <button class="go" data-gopost="${esc(x.slug)}">${esc(x.title)}</button><span class="st">${at ? '게시함 ' + esc(fmtDate(at)) : '게시 전'}</span></li>`; }).join('')}
+      ${[...u.docs].sort((a, b) => (a.kind === 'ideas' ? 0 : 1) - (b.kind === 'ideas' ? 0 : 1)).map(d => `<li><span class="kind">${KIND_NAME[d.kind] || d.kind}</span>
+        <button class="go" data-doc="${esc(d.kind)}/${esc(d.name)}">${esc(d.title)}</button>${d.private_only ? '<span class="st">비공개</span>' : ''}</li>`).join('')}</ul>`
+      : '<span class="hint">아직 이 논문을 쓴 아이디어·목록·글이 없습니다</span>'}</div>`;
   const memo = p.can_memo
     ? `<details class="sec memo" ${p.memo ? 'open' : ''}><summary class="sec-h" style="cursor:pointer">내 메모 (비공개 — memo.private.md, git 제외)</summary>
         <textarea id="memo" aria-label="내 메모" placeholder="이 논문에서 시험해 볼 것, 반론, 내 작업과의 연결…">${esc(p.memo)}</textarea>
         <div class="row"><span class="hint" id="memo-st"></span><button class="btn" id="memo-save">메모 저장</button></div></details>`
     : '';
-  return tags + links + memo;
+  return tags + links + used + memo;
 }
 async function saveTags(tags) {
   try { await api(`/api/papers/${S.paper.id}/tags`, { method: 'PUT', body: { tags } }); await loadLib(); showPaper(S.paper.id, true); }
@@ -1033,6 +1044,7 @@ document.addEventListener('click', async ev => {
     return S.view === 'cmp' ? renderCompare() : showPaper(id, true);
   }
   if (t.dataset.post) { S.post = t.dataset.post; return loadPub(); }
+  if (t.dataset.gopost) { S.post = t.dataset.gopost; return setView('pub'); }
   if (t.dataset.ptab) { S.ptab = t.dataset.ptab; return renderPub(); }
   if (t.dataset.copy) return copyText(t.dataset.copy, t);
   if (t.dataset.uncmp) { S.cmp = S.cmp.filter(x => x !== t.dataset.uncmp); saveCmp(); return renderCompare(); }
