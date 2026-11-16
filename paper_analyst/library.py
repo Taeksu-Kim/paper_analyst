@@ -216,3 +216,87 @@ def to_html(text: str) -> str:
     md.preprocessors.deregister("html_block")
     md.inlinePatterns.deregister("html")
     return md.convert(text)
+
+
+# ── 원문 근거 (notes 의 "6.1절·표 1·부록 F" → 변환된 parsed/paper.md 의 그 부분) ──
+_HEAD = re.compile(r"^(#{1,6})\s+(.*)$")
+_HKEY = re.compile(r"^\**\s*(?:Appendix\s+([A-Z](?:\.\d+)*)|([A-Z]\.\d+(?:\.\d+)*)|(\d+(?:\.\d+)*))\.?(?:\s|$)")
+_REF = re.compile(r"^(sec|tab|fig|app):([0-9A-Z.]+)(?:-([0-9A-Z.]+))?$")
+SOURCE_MAX = 60_000     # 한 번에 보여 줄 원문 글자 수 (장 전체를 고르면 길다)
+
+
+def _headings(lines: list[str]) -> list[tuple[int, int, str, str]]:
+    """(줄 번호, 수준, 번호 키 '6.1'·'A'·'B.1', 제목). 번호 없는 제목은 키가 ''."""
+    out, in_code = [], False
+    for i, line in enumerate(lines):
+        if line.lstrip().startswith("```"):
+            in_code = not in_code
+        m = None if in_code else _HEAD.match(line)
+        if m:
+            k = _HKEY.match(m.group(2))
+            out.append((i, len(m.group(1)), (k.group(1) or k.group(2) or k.group(3)) if k else "", m.group(2).strip("* ")))
+    return out
+
+
+def _src_section(lines: list[str], heads, start: str, end: str | None) -> tuple[str, str] | None:
+    idx = next((n for n, h in enumerate(heads) if h[2] == start), None)
+    if idx is None:
+        return None
+    last = idx
+    if end:
+        last = next((n for n, h in enumerate(heads) if n >= idx and h[2] == end), idx)
+    lvl = heads[last][1]
+    stop = next((h[0] for h in heads[last + 1:] if h[1] <= lvl), len(lines))
+    title = heads[idx][3] + (f" ~ {heads[last][3]}" if last != idx else "")
+    return title, "\n".join(lines[heads[idx][0]:stop])
+
+
+def _caption(lines: list[str], word: str, num: str) -> tuple[str, str] | None:
+    """'> Table 3:' 캡션과 그 앞의 표(| 줄)·그림(![]·'> (a)' 부분 캡션). 표가 캡션 뒤에 오는 형식도 받는다."""
+    cap = re.compile(rf"^>\s*{word}\s+{re.escape(num)}\s*[:.]")
+    i = next((n for n, l in enumerate(lines) if cap.match(l)), None)
+    if i is None:
+        return None
+    body_ok = (lambda l: l.startswith("|")) if word == "Table" else (lambda l: l.startswith(("![", "> (")))
+    a = i
+    while a > 0 and (not lines[a - 1].strip() or body_ok(lines[a - 1]) or (word == "Table" and lines[a - 1].startswith("!["))):
+        a -= 1
+    b = i + 1
+    if word == "Table" and not any(lines[n].startswith("|") for n in range(a, i)):
+        while b < len(lines) and (not lines[b].strip() or lines[b].startswith("|")):
+            b += 1
+    title = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", lines[i].lstrip("> ")).strip()
+    return title[:160], "\n".join(lines[a:b]).strip()
+
+
+def source(root: Path, aid: str, ref: str) -> dict:
+    """ref = sec:6.1 · sec:7.1-7.2 · app:F · app:B.1 · tab:3 · fig:7 → 원문 그 부분(HTML).
+    원문이 없거나 못 찾으면 found=False 와 이유. 원문은 git 에 없다 (각자 fetch)."""
+    m = _REF.match(ref or "")
+    if not m:
+        raise ValueError(f"알 수 없는 근거 표기: {ref}")
+    kind, a, b = m.groups()
+    f = root / "library" / "papers" / aid / "parsed" / "paper.md"
+    if not f.is_file():
+        return {"found": False, "reason": "no_parsed"}
+    lines = f.read_text(encoding="utf-8").split("\n")
+    if kind in ("sec", "app"):
+        got = _src_section(lines, _headings(lines), a, b)
+    else:
+        got = _caption(lines, "Table" if kind == "tab" else "Figure", a)
+    if not got:
+        return {"found": False, "reason": "not_found"}
+    title, md = got
+    cut = len(md) > SOURCE_MAX
+    md = md[:SOURCE_MAX]
+    md = re.sub(r"\]\((?:\./)?images/([\w.\-]+)\)", lambda x: f"](/api/papers/{aid}/images/{x.group(1)})", md)
+    return {"found": True, "title": title, "html": to_html(md), "truncated": cut}
+
+
+def source_image(root: Path, aid: str, name: str) -> Path:
+    if not re.fullmatch(r"[\w.\-]+", name) or name.startswith("."):
+        raise FileNotFoundError(name)
+    f = root / "library" / "papers" / aid / "parsed" / "images" / name
+    if not f.is_file():
+        raise FileNotFoundError(name)
+    return f

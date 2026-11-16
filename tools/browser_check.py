@@ -29,6 +29,11 @@ for d in (ROOT / "library" / "papers").iterdir():
     for f in ("meta.json", "notes.md", "notes.private.md"):
         if (d / f).exists():
             shutil.copy(d / f, t / f)
+# 원문 하나만 복사 — 근거 표기를 누르면 원문이 열리는지 본다 (원문은 git 에 없어 받아 둔 경우만)
+SRC_ID = "2505.06120"
+HAS_SRC = (ROOT / "library/papers" / SRC_ID / "parsed/paper.md").is_file()
+if HAS_SRC:
+    shutil.copytree(ROOT / "library/papers" / SRC_ID / "parsed", TMP / "library/papers" / SRC_ID / "parsed")
 for sub in ("lists", "ideas", "library/candidates"):
     if (ROOT / sub).exists():
         shutil.copytree(ROOT / sub, TMP / sub, dirs_exist_ok=True)
@@ -213,6 +218,45 @@ with sync_playwright() as p:
     check("논문: 결론 블록 + notes 렌더 (표)", page.locator("article .md table").count() >= 1)
     check("논문: 상태 한 묶음(자동|적용함|보류) + arXiv 는 메타 줄 링크",
           page.locator("article .seg button[data-st]").count() == 3 and page.locator("article .meta a[href*='arxiv.org']").count() == 1)
+    # 근거 → 원문. 이 논문은 원문을 복사하지 않았다 → 받는 법 안내
+    refs = page.locator("#notes button.ref")
+    check("근거: notes 의 절·표 표기가 버튼으로", refs.count() >= 3, str(refs.count()))
+    page.locator("#notes button.ref:visible").first.click()
+    page.wait_for_function("document.querySelector('#src-box .src-b') && !document.querySelector('#src-box .skeleton')")
+    check("근거: 원문 없으면 받는 법 안내", "paper_analyst.fetch 2605.15184" in page.inner_text("#src-box"))
+    page.keyboard.press("Escape")
+    check("근거: Esc 로 닫고 버튼으로 포커스", page.locator("#src-box").count() == 0
+          and page.evaluate("document.activeElement.classList.contains('ref')"))
+    if HAS_SRC:
+        page.click(f"#lib-list button[data-paper='{SRC_ID}']")
+        page.wait_for_function("document.querySelector('article h1') && document.querySelector('article h1').innerText.includes('Lost')")
+        loaded = "document.querySelector('#src-box .src-b') && !document.querySelector('#src-box .skeleton')"
+        b61 = page.locator("#notes button.ref[data-ref='sec:6.1']").first
+        b61.click(); page.wait_for_function(loaded)
+        check("근거: 6.1절 → 원문 그 절, 포커스는 원문으로", "6.1 Average Performance" in page.inner_text("#src-box .src-h")
+              and "Concat" in page.inner_text("#src-box .src-b") and b61.get_attribute("aria-expanded") == "true"
+              and page.evaluate("document.activeElement.classList.contains('src-b')"))
+        page.screenshot(path=str(TMP / "shot_1440_source.png"))
+        t1 = page.locator("#notes button.ref[data-ref='tab:1']").first
+        t1.click(); page.wait_for_function(loaded)
+        check("근거: 다른 근거를 누르면 바꿔 열림 (상자 하나, 표·그림 포함)", page.locator("#src-box").count() == 1
+              and "Table 1" in page.inner_text("#src-box .src-h") and page.locator("#src-box table").count() == 1
+              and b61.get_attribute("aria-expanded") == "false")
+        page.wait_for_function("[...document.querySelectorAll('#src-box img')].every(i => i.complete)")
+        check("근거: 원문 그림이 열림", page.evaluate("[...document.querySelectorAll('#src-box img')].every(i => i.naturalWidth > 0)"))
+        page.set_viewport_size({"width": 390, "height": 844}); time.sleep(0.3)
+        check("[390] 근거 상자(넓은 표) 가로 스크롤 없음", page.evaluate("document.documentElement.scrollWidth <= innerWidth"))
+        page.screenshot(path=str(TMP / "shot_390_source.png"))
+        page.set_viewport_size({"width": 1440, "height": 900}); time.sleep(0.3)
+        t1.click()
+        check("근거: 같은 버튼을 다시 누르면 닫힘", page.locator("#src-box").count() == 0 and t1.get_attribute("aria-expanded") == "false")
+        page.locator("#notes button.ref[data-ref='app:F']").first.click(); page.wait_for_function(loaded)
+        check("근거: 부록 F", "Appendix F" in page.inner_text("#src-box .src-h"))
+        page.click("#src-close")
+        check("근거: 닫기 → 버튼으로 포커스", page.locator("#src-box").count() == 0
+              and page.evaluate("document.activeElement.dataset.ref") == "app:F")
+        page.click("#lib-list button[data-paper='2605.15184']")
+        page.wait_for_selector("article .concl")
     if (TMP / "library/papers/2606.28434/notes.md").exists():   # 예전 양식 ('## 한 줄 요약')
         page.click("#lib-list button[data-paper='2606.28434']")
         page.wait_for_function("document.querySelector('article h1') && document.querySelector('article h1').innerText.includes('SWE-MeM')")

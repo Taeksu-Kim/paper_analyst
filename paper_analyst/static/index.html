@@ -239,6 +239,18 @@ button.chip:hover { border-color: var(--line-strong); color: var(--text); }
 .cmp-pick .gh { font-size: var(--fs-cap); color: var(--text-3); font-weight: 700; margin-bottom: 2px; }
 .cmp-pick .row { display: flex; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); }
 .cmp-pick .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-label); }
+.ref { font: inherit; color: var(--accent); background: none; border: 0; padding: 0 1px; margin: 0; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; border-radius: 3px; }
+.ref:hover { background: var(--accent-soft); }
+.ref[aria-expanded="true"] { background: var(--accent-soft); text-decoration-style: solid; }
+.src-box { contain: inline-size; border: 1px solid var(--line-strong); border-radius: var(--radius-lg); background: var(--panel); margin: 8px 0 12px; font-size: var(--fs-label); font-weight: 400; }
+.src-h { display: flex; align-items: center; gap: 8px; justify-content: space-between; padding: 4px 6px 4px 12px; border-bottom: 1px solid var(--line); background: var(--panel-2); border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+.src-h .t { font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.src-b { max-height: min(50vh, 480px); overflow: auto; padding: 4px 12px 8px; }
+.src-b h1, .src-b h2 { font-size: var(--fs-h3); margin: 8px 0; padding: 0; border: 0; }
+.src-b img { max-width: 100%; height: auto; }
+.src-b th, .src-b td { overflow-wrap: normal; min-width: 3em; }   /* 원문 표는 글자 단위로 쪼개지 말고 상자 안에서 가로로 민다 */
+.src-b img.icon { max-height: 1.4em; width: auto; vertical-align: -0.25em; }   /* 글 사이 아이콘 (그림만 있는 문단은 제 크기) */
+.src-f { padding: 6px 12px; border-top: 1px solid var(--line); color: var(--text-3); font-size: var(--fs-cap); }
 .inline-confirm { border: 1px solid var(--line-strong); border-radius: var(--radius-lg); background: var(--panel-2); padding: 10px 14px; margin: -6px 0 14px; font-size: var(--fs-label); }
 .inline-confirm p { margin: 0 0 8px; line-height: 1.6; }
 .inline-confirm .row { display: flex; gap: 6px; }
@@ -513,6 +525,7 @@ async function showPaper(id, quiet = false) {
     ${p.private_html ? `<details class="private"><summary>개인 메모 (비공개 — notes.private.md, git 제외)</summary><div class="md">${p.private_html}</div></details>` : ''}
   </article>`;
   dedupe($('#notes'), p);
+  linkRefs($('#notes'));
 }
 const LINK_TEXT = {   // 방향 있는 연결의 읽는 법 (out = 이 논문 → 상대, in = 상대 → 이 논문)
   out: { follows: '이 논문은 다음의 후속', refutes: '이 논문이 반박', agrees: '같은 방향', related: '관련' },
@@ -677,6 +690,76 @@ async function copyText(kind, btn) {
     if (!ok) { toast('복사하지 못했습니다 — 미리보기에서 직접 선택해 복사하세요'); return; }
   }
   toast(`${{ linkedin: 'LinkedIn 글자', blog: '마크다운', tistory: 'HTML' }[kind]}를 복사했습니다 (${fmtN(text.length)}자)`);
+}
+// notes 의 근거 표기 → 원문 펼치기 버튼. 6.1절 · 7.1~7.2절 · 1~5장 · §4.2 · 부록 B.1 · 표 3·4 · 그림 1c
+const REF_RE = /(?<![\d.])(?:§\s?(\d+(?:\.\d+)*)|(\d+(?:\.\d+)*)(?:\s?[~–]\s?(\d+(?:\.\d+)*))?\s?(?:절(?!반)|장(?![점면기소]))|부록\s?([A-Z](?:\.\d+)*)(?![A-Za-z])|(?<![가-힣])(표|그림)\s?(\d{1,2})[a-z]?((?:·\d{1,2})*)(?!\d))/g;
+function refBtn(label, ref, aria) {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'ref'; b.dataset.ref = ref; b.textContent = label;
+  b.setAttribute('aria-expanded', 'false'); b.setAttribute('aria-controls', 'src-box');
+  b.setAttribute('aria-label', `${aria || label} 원문 보기`); b.title = '받아 둔 원문에서 이 부분 보기';
+  return b;
+}
+function linkRefs(md) {
+  if (!md) return;
+  const walk = document.createTreeWalker(md, NodeFilter.SHOW_TEXT, {
+    acceptNode: n => n.parentElement.closest('code, pre, a, button') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
+  const nodes = []; while (walk.nextNode()) if (new RegExp(REF_RE.source).test(walk.currentNode.data)) nodes.push(walk.currentNode);
+  for (const n of nodes) {
+    const frag = document.createDocumentFragment(); let last = 0;
+    for (const m of n.data.matchAll(REF_RE)) {
+      frag.append(n.data.slice(last, m.index)); last = m.index + m[0].length;
+      const [all, sec, a, b, app, word, num, more] = m;
+      if (sec) frag.append(refBtn(all, `sec:${sec}`));
+      else if (a) frag.append(refBtn(all, b ? `sec:${a}-${b}` : `sec:${a}`));
+      else if (app) frag.append(refBtn(all, `app:${app}`));
+      else {
+        const kind = word === '표' ? 'tab' : 'fig', head = all.slice(0, all.length - (more || '').length);
+        frag.append(refBtn(head, `${kind}:${num}`));
+        for (const x of (more || '').split('·').filter(Boolean)) frag.append('·', refBtn(x, `${kind}:${x}`, `${word} ${x}`));
+      }
+    }
+    frag.append(n.data.slice(last)); n.replaceWith(frag);
+  }
+}
+function closeSource(refocus) {
+  $('#src-box')?.remove();
+  const b = S.srcBtn; S.srcBtn = null;
+  if (b && b.isConnected) { b.setAttribute('aria-expanded', 'false'); if (refocus) b.focus(); }
+}
+async function toggleSource(btn) {
+  const same = S.srcBtn === btn && $('#src-box');
+  closeSource(false);
+  if (same) return;
+  const name = (btn.getAttribute('aria-label') || '').replace(/ 원문 보기$/, '') || btn.textContent;
+  S.srcBtn = btn; btn.setAttribute('aria-expanded', 'true');
+  const box = document.createElement('div');
+  box.id = 'src-box'; box.className = 'src-box'; box.setAttribute('role', 'region'); box.setAttribute('aria-label', `원문 ${name}`);
+  box.innerHTML = `<div class="src-h"><span class="t">원문 · ${esc(name)}</span><button type="button" class="btn quiet" id="src-close">닫기</button></div>
+    <div class="src-b" tabindex="0"><div class="skeleton" style="margin-top:8px"></div><div class="skeleton" style="width:70%"></div></div>`;
+  const host = btn.closest('li, td');
+  if (host) host.appendChild(box); else (btn.closest('p, blockquote, h1, h2, h3, h4, h5, h6') || btn).after(box);
+  box.scrollIntoView({ block: 'nearest' });
+  const p = S.paper; let r;
+  try { r = await api(`/api/papers/${encodeURIComponent(p.id)}/source?ref=${encodeURIComponent(btn.dataset.ref)}`); }
+  catch (e) { r = { found: false, reason: 'error', error: e.message }; }
+  if ($('#src-box') !== box) return;   // 그사이 닫았거나 다른 근거를 열었다
+  const arxiv = `<a href="${esc(p.abs_url)}" target="_blank" rel="noopener">arXiv 논문 페이지</a>`;
+  if (r.found) {
+    box.querySelector('.t').textContent = `원문 · ${r.title}`;
+    box.querySelector('.src-b').innerHTML = r.html;
+    for (const im of box.querySelectorAll('.src-b img')) if (im.parentElement.tagName !== 'P' || im.parentElement.textContent.trim()) im.classList.add('icon');
+    box.insertAdjacentHTML('beforeend', `<div class="src-f">받아 둔 원문을 마크다운으로 바꾼 것이라 표·수식이 깨져 보일 수 있습니다${r.truncated ? ' · 길어서 앞부분만 보입니다' : ''} · ${arxiv}</div>`);
+  } else {
+    box.querySelector('.src-b').innerHTML = r.reason === 'no_parsed'
+      ? `<p>이 논문의 원문을 아직 받지 않았습니다. 원문은 저장소에 들어 있지 않아 각자 받아야 합니다.</p>
+         <p><code>python -m paper_analyst.fetch ${esc(p.id)} --parse</code> 로 받으면 여기서 바로 볼 수 있습니다. 또는 ${arxiv}</p>`
+      : r.reason === 'not_found'
+      ? `<p>받아 둔 원문에서 <b>${esc(name)}</b>을(를) 찾지 못했습니다. notes 의 번호가 원문과 다르거나, 변환하면서 제목·캡션 모양이 바뀌었을 수 있습니다.</p><p>${arxiv}에서 확인해 주세요.</p>`
+      : `<p>원문을 불러오지 못했습니다: ${esc(r.error || '')}</p>`;
+  }
+  box.querySelector('.src-b').focus({ preventScroll: true });
+  box.scrollIntoView({ block: 'nearest' });
 }
 function dedupe(md, p) {   // 위에 이미 보인 제목·결론 문장은 notes 본문에서 뺀다
   if (!md) return;
@@ -958,6 +1041,7 @@ document.addEventListener('click', async ev => {
       await loadLib(); showPaper(S.sel.id, true); toast(t.dataset.st ? `${t.textContent}(으)로 표시했습니다` : '파일 기준 상태로 되돌렸습니다'); }
     catch (e) { toast(e.message); } return;
   }
+  if (t.dataset.ref) return toggleSource(t);
   if (t.dataset.ask) { if (t.id === 'reread-go') $('#reread-box').hidden = true; return send(t.dataset.ask); }
   if (t.dataset.cv) { S.candView = t.dataset.cv; return loadCand(); }
   if (t.dataset.abs) {
@@ -989,6 +1073,7 @@ document.addEventListener('click', async ev => {
     case 'tab-cand': return setView('cand');
     case 'tab-cmp': return setView('cmp');
     case 'profile': return toggleProfile();
+    case 'src-close': return closeSource(true);
     case 'reread': case 'reread-cancel': {
       const box = $('#reread-box'), open = t.id === 'reread' && box.hidden;
       box.hidden = !open; $('#reread').setAttribute('aria-expanded', open);
@@ -1052,6 +1137,7 @@ function toggleProfile(open) {
 document.addEventListener('click', e => {   // 밖을 누르면 닫는다
   if (!$('#profile-pop').hidden && !e.target.closest('#profile-pop, #profile')) toggleProfile(false);
 });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && e.target.closest && e.target.closest('#src-box')) { e.stopImmediatePropagation(); closeSource(true); } });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#profile-pop').hidden) { toggleProfile(false); $('#profile').focus(); } });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { $('.menu')?.remove(); document.body.classList.remove('chat-open'); } });
 $('#input').addEventListener('keydown', e => {
