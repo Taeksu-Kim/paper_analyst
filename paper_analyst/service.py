@@ -115,7 +115,37 @@ class Service:
                 "private_html": L.to_html(f["private"]) if f["private"] else "",
                 "memo": f["memo"], "can_memo": (self.root / "library" / "papers" / aid / "meta.json").is_file(),
                 "links": links, "suggest_links": suggest_links, "suggest_tags": suggest_tags,
-                "used_in": self._used_in(aid, papers), "fresh": self._fresh(aid, f) if f["notes"] else None}
+                "used_in": self._used_in(aid, papers), "fresh": self._fresh(aid, f) if f["notes"] else None,
+                "applied": L.read_applied(self._paper_dir(aid)), "applied_results": L.APPLIED_RESULTS}
+
+    # ── 적용 기록 ───────────────────────────────────────
+    def add_applied(self, aid: str, where: str, took: str, result: str, note: str, date: str) -> dict:
+        d = self._paper_dir(aid)
+        if not (d / "meta.json").is_file():
+            raise NotFound(aid)
+        clean = lambda s, n: " ".join((s or "").split())[:n]
+        where, took, note = clean(where, 120), clean(took, 300), clean(note, 300)
+        if not where:
+            raise ValueError("어디에 적용했는지 적어 주세요")
+        if result not in L.APPLIED_RESULTS:
+            raise ValueError(f"결과는 {list(L.APPLIED_RESULTS)} 중 하나")
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date or ""):
+            raise ValueError("날짜는 YYYY-MM-DD")
+        recs = L.read_applied(d)
+        rec = {"id": f"a{int(time.time() * 1000):x}", "date": date, "where": where, "took": took, "result": result, "note": note}
+        title = L.paper_files(self.root, aid)["meta"].get("title") or aid
+        L.write_applied(d, title, recs + [rec])
+        if self.store.states().get(aid) != "applied":   # 적용 기록이 있으면 상태는 '적용함'
+            self.store.set_state(aid, "applied")
+        return self.paper(aid)
+
+    def delete_applied(self, aid: str, rid: str) -> dict:
+        d = self._paper_dir(aid)
+        recs = L.read_applied(d)
+        if not any(r["id"] == rid for r in recs):
+            raise NotFound(rid)
+        L.write_applied(d, L.paper_files(self.root, aid)["meta"].get("title") or aid, [r for r in recs if r["id"] != rid])
+        return self.paper(aid)
 
     # ── 결론의 확인 시점 · 다시 확인 (누를 때만, Claude 없이 arXiv·S2 조회) ──
     def _paper_dir(self, aid: str) -> Path:
@@ -348,7 +378,8 @@ class Service:
             notes = L.paper_files(self.root, aid)["notes"]
             out.append({"id": aid, "title": lib[aid]["title"], "published": lib[aid]["published"],
                         "status": lib[aid]["status"], "tags": lib[aid]["tags"], "verdict": lib[aid]["conclusion"],
-                        "parts": [{"label": x["label"], "html": L.to_html(x["md"])} for x in L.conclusion_parts(notes)]})
+                        "parts": [{"label": x["label"], "html": L.to_html(x["md"])} for x in L.conclusion_parts(notes)],
+                        "applied": L.read_applied(self._paper_dir(aid))})
         return out
 
     def set_status(self, aid: str, status: str | None) -> dict:

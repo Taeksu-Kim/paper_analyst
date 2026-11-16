@@ -47,6 +47,14 @@ class MemoIn(BaseModel):
     text: str
 
 
+class AppliedIn(BaseModel):
+    where: str
+    took: str = ""
+    result: str = "unknown"
+    note: str = ""
+    date: str
+
+
 class MessageIn(BaseModel):
     text: str
     paper_id: str | None = None
@@ -111,6 +119,14 @@ def create_app(root: Path, *, backends: dict[str, ChatBackend] | None = None, db
     @app.post("/api/papers/{aid}/check")
     def paper_check(aid: str):
         return guard(svc.check_fresh, aid)
+
+    @app.post("/api/papers/{aid}/applied")
+    def add_applied(aid: str, body: AppliedIn):
+        return guard(svc.add_applied, aid, body.where, body.took, body.result, body.note, body.date)
+
+    @app.delete("/api/papers/{aid}/applied/{rid}")
+    def delete_applied(aid: str, rid: str):
+        return guard(svc.delete_applied, aid, rid)
 
     @app.put("/api/papers/{aid}/status")
     def set_status(aid: str, body: StatusIn):
