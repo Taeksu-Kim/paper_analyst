@@ -37,6 +37,9 @@ if HAS_SRC:
 for sub in ("lists", "ideas", "library/candidates"):
     if (ROOT / sub).exists():
         shutil.copytree(ROOT / sub, TMP / sub, dirs_exist_ok=True)
+# 외부 평가 기록 (가짜) — '새 판·인용 확인'이 그 뒤로 바뀐 것만 보이는지
+(TMP / "library/papers/2603.28052/external.json").write_text(json.dumps(
+    {"fetched_at": "2026-11-14T02:00:00+00:00", "s2": {"citations": 100, "contexts": [{"title": "Old citing"}]}}))
 TARGET = "2604.12374"     # notes 없는 논문 — 가짜 세션이 정리한다
 # 발행 초안 하나 (개인 메모 문장을 일부러 한 줄 섞어 경고가 나오는지 본다)
 _pd = TMP / "posts" / "2026-11-16_judge"
@@ -123,8 +126,12 @@ backends = {"claude": Fake("claude", "Claude Code", True),
             "local": Fake("local", "로컬 LLM", False, "로컬 LLM 서버가 꺼져 있습니다. LLM.md §2 의 명령으로 켜세요.")}
 CFG = TMP / "cfg"   # LinkedIn 키·토큰 (실제 ~/.config/side-projects 는 건드리지 않음)
 (CFG / "tokens").mkdir(parents=True)
+CHECKS = []
 app = create_app(TMP, backends=backends, db_path=TMP / "data" / "ui.db", linkedin=FAKE_LI, config_dir=CFG,
-                 abstract_fn=lambda a: f"{a} 의 초록입니다. 에이전트 하네스에 대한 연구." * 3)
+                 abstract_fn=lambda a: f"{a} 의 초록입니다. 에이전트 하네스에 대한 연구." * 3,
+                 check_fn=lambda a: CHECKS.append(a) or {"version": "v3", "citations": 130,
+                     "citing": [{"title": "Old citing", "year": 2026, "influential": False},
+                                {"title": "Follow-up that disputes the harness search result", "year": 2026, "influential": True}]})
 with socket.socket() as s:
     s.bind(("127.0.0.1", 0))
     PORT = s.getsockname()[1]
@@ -223,6 +230,22 @@ with sync_playwright() as p:
     page.wait_for_function("document.querySelector('article h1') && document.querySelector('article h1').innerText.includes('Meta-Harness')")
     used = page.locator(".sec", has_text="쓰인 곳").inner_text()
     check("쓰인 곳: 아이디어·글(게시 전)", "아이디어" in used and "판정기는 한 숫자로" in used and "게시 전" in used and used.index("판정기") < used.index("아이디어"), used[:120])
+    fr = page.inner_text(".sec.fresh")
+    check("확인 시점: 정리·외부 평가(그때 인용)·받은 판", "정리 2026-11-14" in fr and "그때 인용 100" in fr and "arXiv v1" in fr, fr[:120])
+    page.click("#fresh-check")
+    page.wait_for_selector(".fresh-res")
+    fr = page.inner_text(".sec.fresh")
+    check("다시 확인: 새 판·인용 증가·새로 인용한 논문만 (Claude 안 씀)", "새 판 v3" in fr and "100 → 130 (+30)" in fr
+          and "disputes" in fr and "Old citing" not in fr and CHECKS == ["2603.28052"], fr[:200])
+    check("다시 확인: 끝나면 버튼으로 포커스", page.evaluate("document.activeElement.id") == "fresh-check")
+    n_user = page.locator(".msg.user").count()
+    page.click("#fresh-apply")
+    check("반영 시키기: 바로 보내지 않고 확인 상자 (새 판·인용 담긴 요청)", page.is_visible("#reread-box")
+          and "v3" in page.get_attribute("#reread-go", "data-ask") and page.locator(".msg.user").count() == n_user
+          and page.evaluate("document.activeElement.id") == "reread-go")
+    page.click("#reread-cancel"); page.click("#reread")
+    check("다시 정리: 반영 요청이 남지 않음", page.get_attribute("#reread-go", "data-ask").startswith("이 논문 notes 를 다시 확인하고"))
+    page.click("#reread-cancel")
     page.click("button[data-gopost='2026-11-16_judge']")
     page.wait_for_selector(".pub-body")
     check("쓰인 곳: 글을 누르면 발행 탭의 그 글", page.get_attribute("#tab-pub", "aria-selected") == "true"

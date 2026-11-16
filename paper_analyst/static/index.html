@@ -252,6 +252,13 @@ button.chip:hover { border-color: var(--line-strong); color: var(--text); }
 .src-b th, .src-b td { overflow-wrap: normal; min-width: 3em; }   /* 원문 표는 글자 단위로 쪼개지 말고 상자 안에서 가로로 민다 */
 .src-b img.icon { max-height: 1.4em; width: auto; vertical-align: -0.25em; }   /* 글 사이 아이콘 (그림만 있는 문단은 제 크기) */
 .src-f { padding: 6px 12px; border-top: 1px solid var(--line); color: var(--text-3); font-size: var(--fs-cap); }
+.fresh-base { display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap; font-size: var(--fs-label); color: var(--text-2); }
+.fresh-base .nw { white-space: nowrap; }
+.fresh-res { margin-top: 6px; font-size: var(--fs-label); }
+.fresh-res .warn-t { color: var(--warn); font-size: var(--fs-cap); margin-top: 2px; }
+.fresh-res .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+ul.cites { margin: 2px 0 0; padding-left: 18px; font-size: var(--fs-label); }
+ul.cites .inf { color: var(--accent); }
 .inline-confirm { border: 1px solid var(--line-strong); border-radius: var(--radius-lg); background: var(--panel-2); padding: 10px 14px; margin: -6px 0 14px; font-size: var(--fs-label); }
 .inline-confirm p { margin: 0 0 8px; line-height: 1.6; }
 .inline-confirm .row { display: flex; gap: 6px; }
@@ -482,6 +489,7 @@ function renderLib() {
   rove();
 }
 
+const REREAD_ASK = '이 논문 notes 를 다시 확인하고, 빠진 외부 평가가 있으면 보강해줘';
 async function showPaper(id, quiet = false) {
   S.sel = { kind: 'paper', id }; S.fresh.delete(id);
   if (!quiet) $('#main').innerHTML = `<div class="doc"><div class="skeleton" style="width:60%;height:24px"></div><div class="skeleton"></div><div class="skeleton" style="width:80%"></div></div>`;
@@ -515,7 +523,7 @@ async function showPaper(id, quiet = false) {
     <div class="inline-confirm" id="reread-box" role="group" aria-label="다시 정리 확인" hidden>
       <p>기존 정리(notes)를 Claude 가 다시 확인하고, 빠진 외부 평가가 있으면 보강합니다. 내용이 고쳐질 수 있고,
       Claude 세션이 보통 몇 분 돌며 사용량이 나갑니다.</p>
-      <div class="row"><button class="btn primary" data-ask="이 논문 notes 를 다시 확인하고, 빠진 외부 평가가 있으면 보강해줘" id="reread-go">시작</button>
+      <div class="row"><button class="btn primary" data-ask="${REREAD_ASK}" id="reread-go">시작</button>
       <button class="btn quiet" id="reread-cancel">취소</button></div></div>
     ${p.conclusion ? `<div class="concl"><span class="k">결론</span><span class="v">${esc(p.conclusion)}</span></div>` : ''}
     ${paperExtras(p)}
@@ -532,6 +540,38 @@ const LINK_TEXT = {   // 방향 있는 연결의 읽는 법 (out = 이 논문 �
   out: { follows: '이 논문은 다음의 후속', refutes: '이 논문이 반박', agrees: '같은 방향', related: '관련' },
   in: { follows: '이 논문의 후속', refutes: '이 논문을 반박', agrees: '같은 방향', related: '관련' },
 };
+function daysAgo(d) { const n = Math.floor((Date.now() - new Date(d + 'T00:00:00')) / 864e5); return n <= 0 ? '오늘' : `${n}일 전`; }
+function freshHtml(p) {
+  const f = p.fresh; if (!f) return '';
+  const base = [`정리 ${esc(f.noted)} (${daysAgo(f.noted)})`,
+    f.ext_at ? `외부 평가 조회 ${esc(f.ext_at)}${f.citations != null ? ` · 그때 인용 ${fmtN(f.citations)}` : ''}` : '외부 평가 조회 기록 없음',
+    f.version ? `받은 판 arXiv ${esc(f.version)}` : ''].filter(Boolean).map(s => `<span class="nw">${s}</span>`).join(' · ');
+  const c = f.check;
+  let res = '';
+  if (c) {
+    const parts = [];
+    if (c.version_now) parts.push(c.new_version ? `<b>새 판 ${esc(c.version_now)}</b> (받은 판 ${esc(c.version_then)})` : `새 판 없음 (${esc(c.version_now)})`);
+    if (c.citations_now != null) parts.push(c.citations_then != null
+      ? `인용 ${fmtN(c.citations_then)} → ${fmtN(c.citations_now)} (${c.citations_now - c.citations_then >= 0 ? '+' : ''}${fmtN(c.citations_now - c.citations_then)})`
+      : `인용 ${fmtN(c.citations_now)}`);
+    const errs = (c.errors || []).map(e => /429/.test(e) ? `${e.split(':')[0]} 요청 제한 — 잠시 뒤 다시 눌러 주세요${e.startsWith('S2') ? ' (키 없이 쓰는 공용 한도라 자주 막힙니다. S2_API_KEY 를 설정하면 덜 막힘)' : ''}` : e);
+    const cites = c.new_citing && c.new_citing.length ? `<div class="hint" style="margin-top:4px">외부 평가 조회 뒤 새로 인용한 논문 ${c.new_citing_total}편${c.new_citing_total > c.new_citing.length ? ` 중 ${c.new_citing.length}편` : ''}</div>
+      <ul class="cites">${c.new_citing.map(x => `<li>${x.influential ? '<span class="inf" title="Semantic Scholar 가 영향력 있는 인용으로 표시">★</span> ' : ''}${esc(x.title)}${x.year ? ` <span class="hint">${x.year}</span>` : ''}</li>`).join('')}</ul>` : '';
+    const worth = c.new_version || (c.new_citing && c.new_citing.length);
+    res = `<div class="fresh-res" role="status"><span class="hint">${esc(c.checked_at)} 확인</span> ${parts.join(' · ') || ''}
+      ${errs.length ? `<div class="warn-t">${errs.map(esc).join(' · ')}</div>` : ''}${cites}
+      ${worth ? `<div class="row" style="margin-top:6px"><button class="btn" id="fresh-apply">Claude 에게 반영 시키기</button>
+        <span class="hint">새 판·인용에 반론·후속이 있는지 읽고 notes 에 반영합니다 (확인 후 시작)</span></div>` : ''}</div>`;
+  }
+  return `<div class="sec fresh"><div class="sec-h">확인 시점</div>
+    <div class="fresh-base"><span>${base}</span><button class="btn quiet" id="fresh-check" title="arXiv 새 판과 Semantic Scholar 인용을 지금 조회합니다 (Claude 사용량 없음)">새 판·인용 확인</button></div>${res}</div>`;
+}
+function freshAsk(p) {
+  const c = p.fresh.check, bits = [];
+  if (c.new_version) bits.push(`arXiv ${c.version_now} 가 나왔어 (정리한 판 ${c.version_then})`);
+  if (c.new_citing && c.new_citing.length) bits.push(`외부 평가 조회 뒤 새로 인용한 논문 ${c.new_citing_total}편이 있어 (${c.new_citing.map(x => x.title).join(' / ')})`);
+  return `이 논문 notes 를 다시 확인해줘. ${bits.join(', ')}. 새 판에서 바뀐 결과, 새 인용 중 반론·후속이 있으면 외부 평가와 결론에 반영하고, 바뀔 게 없으면 그대로 둬`;
+}
 function paperExtras(p) {
   const tags = `<div class="sec"><div class="sec-h">태그</div><div class="tags">
     ${p.tags.map(t => `<span class="tag">${esc(t)}<button data-tagdel="${esc(t)}" aria-label="태그 ${esc(t)} 빼기" title="빼기">×</button></span>`).join('')}
@@ -565,7 +605,7 @@ function paperExtras(p) {
         <textarea id="memo" aria-label="내 메모" placeholder="이 논문에서 시험해 볼 것, 반론, 내 작업과의 연결…">${esc(p.memo)}</textarea>
         <div class="row"><span class="hint" id="memo-st"></span><button class="btn" id="memo-save">메모 저장</button></div></details>`
     : '';
-  return tags + links + used + memo;
+  return freshHtml(p) + tags + links + used + memo;
 }
 async function saveTags(tags) {
   try { await api(`/api/papers/${S.paper.id}/tags`, { method: 'PUT', body: { tags } }); await loadLib(); showPaper(S.paper.id, true); }
@@ -1086,8 +1126,19 @@ document.addEventListener('click', async ev => {
     case 'tab-cmp': return setView('cmp');
     case 'profile': return toggleProfile();
     case 'src-close': return closeSource(true);
+    case 'fresh-check': {
+      t.disabled = true; t.textContent = '확인 중…';
+      try { await api(`/api/papers/${encodeURIComponent(S.paper.id)}/check`, { method: 'POST' }); await showPaper(S.paper.id, true); $('#fresh-check')?.focus(); }
+      catch (e) { toast(e.message); t.disabled = false; t.textContent = '새 판·인용 확인'; }
+      return;
+    }
+    case 'fresh-apply': {
+      const box = $('#reread-box'); $('#reread-go').dataset.ask = freshAsk(S.paper);
+      box.hidden = false; $('#reread').setAttribute('aria-expanded', 'true'); box.scrollIntoView({ block: 'nearest' }); $('#reread-go').focus(); return;
+    }
     case 'reread': case 'reread-cancel': {
       const box = $('#reread-box'), open = t.id === 'reread' && box.hidden;
+      $('#reread-go').dataset.ask = REREAD_ASK;   // '반영 시키기'로 바뀐 요청을 되돌린다
       box.hidden = !open; $('#reread').setAttribute('aria-expanded', open);
       (open ? $('#reread-go') : $('#reread')).focus(); return;
     }

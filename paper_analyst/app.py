@@ -54,9 +54,10 @@ class MessageIn(BaseModel):
 
 def create_app(root: Path, *, backends: dict[str, ChatBackend] | None = None, db_path: Path | None = None,
                abstract_fn: Callable[[str], str] | None = None, fetch_fn: Callable[[str], dict] | None = None,
-               topics: list[str] | None = None, linkedin=None, config_dir: Path | None = None) -> FastAPI:
+               topics: list[str] | None = None, linkedin=None, config_dir: Path | None = None,
+               check_fn: Callable[[str], dict] | None = None) -> FastAPI:
     svc = Service(root, db_path or root / "data" / "paper_analyst.db", backends, abstract_fn, fetch_fn, topics, linkedin,
-                  config_dir)
+                  config_dir, check_fn)
     if backends is None:   # 실제 서버: 두 세션 모두 (꺼져 있으면 화면에서 잠김)
         from paper_analyst.chat import ClaudeBackend, LocalBackend
         svc.backends = {"claude": ClaudeBackend(root), "local": LocalBackend(svc.local_tools())}
@@ -106,6 +107,10 @@ def create_app(root: Path, *, backends: dict[str, ChatBackend] | None = None, db
     @app.get("/api/papers/{aid}/images/{name}")
     def paper_image(aid: str, name: str):
         return FileResponse(guard(svc.source_image, aid, name))
+
+    @app.post("/api/papers/{aid}/check")
+    def paper_check(aid: str):
+        return guard(svc.check_fresh, aid)
 
     @app.put("/api/papers/{aid}/status")
     def set_status(aid: str, body: StatusIn):
