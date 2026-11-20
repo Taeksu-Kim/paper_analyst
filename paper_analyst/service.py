@@ -112,6 +112,7 @@ class Service:
         return {**lib[aid], "abstract": f["meta"].get("abstract") or (cand or {}).get("abstract") or "",
                 "authors": f["meta"].get("authors", []), "abs_url": f"https://arxiv.org/abs/{aid}",
                 "notes_html": L.to_html(f["notes"]) if f["notes"] else "",
+                "notes_md": f["notes"] or "", "notes_mtime": self._notes_mtime(aid),
                 "private_html": L.to_html(f["private"]) if f["private"] else "",
                 "memo": f["memo"], "can_memo": (self.root / "library" / "papers" / aid / "meta.json").is_file(),
                 "links": links, "suggest_links": suggest_links, "suggest_tags": suggest_tags,
@@ -354,6 +355,26 @@ class Service:
             raise NotFound(str(lid))
         self.store.x("DELETE FROM links WHERE id=?", (lid,))
         return {"deleted": lid}
+
+    def _notes_mtime(self, aid: str) -> float | None:
+        f = self._paper_dir(aid) / "notes.md"
+        return f.stat().st_mtime if f.is_file() else None
+
+    def set_notes(self, aid: str, text: str, base_mtime: float | None) -> dict:
+        """사람이 화면에서 고친 notes 를 저장한다. Claude 세션이 그사이 파일을 고쳤으면 덮어쓰지 않는다 (불러온 때의 수정 시각으로 비교)."""
+        f = self._paper_dir(aid) / "notes.md"
+        if not f.is_file():
+            raise NotFound(aid)
+        text = (text or "").rstrip()
+        if not text:
+            raise ValueError("notes 를 비워서 저장할 수는 없습니다 — 지우려면 파일을 직접 정리하세요")
+        now = f.stat().st_mtime
+        if base_mtime is None or abs(now - base_mtime) > 1e-6:
+            raise Conflict("그사이 다른 곳(예: Claude 세션)에서 notes 가 바뀌었습니다 — 다시 불러온 뒤 고쳐 주세요")
+        tmp = f.with_suffix(".tmp")
+        tmp.write_text(text + "\n", encoding="utf-8")
+        tmp.replace(f)
+        return {"id": aid, "notes_mtime": f.stat().st_mtime}
 
     def set_memo(self, aid: str, text: str) -> dict:
         d = self.root / "library" / "papers" / aid

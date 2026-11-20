@@ -456,3 +456,31 @@ def test_notes_nested_list_after_continuation(env):
     h = mk().get("/api/papers/2604.15597").json()["notes_html"]
     assert "<pre>" not in h and "- **" not in h and "- <strong>" not in h
     assert h.count("<li>") == 6 and h.count("<ul>") == 3   # 위 3 + 아래 2 + 1
+
+
+def test_notes_edit_conflict_and_validation(env):
+    """화면에서 notes 를 고쳐 저장 — 같은 요청 2회, 그사이 다른 곳이 고침(409), 빈 글, 없는 논문, 재시작 뒤 그대로."""
+    root, _, _, mk = env
+    c = mk()
+    p = c.get("/api/papers/2603.28052").json()
+    assert p["notes_md"].startswith("# Meta-Harness") and p["notes_mtime"]
+    new = p["notes_md"].replace("원본 trace", "원본 trace (사람이 고침)")
+    r = c.put("/api/papers/2603.28052/notes", json={"text": new, "base_mtime": p["notes_mtime"]})
+    assert r.status_code == 200
+    m2 = r.json()["notes_mtime"]
+    # 같은 요청 2회: 첫 저장 뒤 수정 시각이 바뀌었으니 예전 시각으로는 409 (덮어쓰지 않음)
+    assert c.put("/api/papers/2603.28052/notes", json={"text": new + "x", "base_mtime": p["notes_mtime"]}).status_code == 409
+    # 그사이 다른 곳(Claude 세션)이 고침 → 409, 파일은 그쪽 내용 그대로
+    time.sleep(0.02)
+    (root / "library/papers/2603.28052/notes.md").write_text("# Meta-Harness\n\nClaude 가 고침\n", encoding="utf-8")
+    assert c.put("/api/papers/2603.28052/notes", json={"text": "내 수정", "base_mtime": m2}).status_code == 409
+    assert "Claude 가 고침" in (root / "library/papers/2603.28052/notes.md").read_text(encoding="utf-8")
+    # 빈 글 400, 시각 없이 409, 정리 전 논문(notes 없음) 404
+    cur = c.get("/api/papers/2603.28052").json()
+    assert c.put("/api/papers/2603.28052/notes", json={"text": "  \n", "base_mtime": cur["notes_mtime"]}).status_code == 400
+    assert c.put("/api/papers/2603.28052/notes", json={"text": "a"}).status_code == 409
+    assert c.put("/api/papers/2604.15597/notes", json={"text": "a", "base_mtime": 1.0}).status_code == 404
+    # 재시작(앱 새로) 뒤 화면 HTML 에 반영
+    ok = c.put("/api/papers/2603.28052/notes", json={"text": "# Meta-Harness\n\n## 결론\n**고친 결론.**\n", "base_mtime": cur["notes_mtime"]})
+    assert ok.status_code == 200
+    assert "고친 결론" in mk().get("/api/papers/2603.28052").json()["notes_html"]
