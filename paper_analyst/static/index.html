@@ -201,6 +201,26 @@ button.concl { cursor: pointer; font: inherit; color: inherit; }
 .facts .cnt { display: inline-flex; align-items: center; gap: 5px; font-variant-numeric: tabular-nums; }
 .facts .cnt b { color: var(--text); font-weight: 600; }
 .facts .go-manage { margin-left: auto; }
+.search-row { display: flex; gap: 6px; }
+.search-row .search { flex: 1; min-width: 0; }
+#lib-sort { flex: none; height: 36px; padding: 0 22px 0 8px; border: 1px solid var(--line-strong); border-radius: var(--radius); font-size: var(--fs-label); color: var(--text-2); cursor: pointer; appearance: none; -webkit-appearance: none; background-color: var(--panel);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23686c71' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 6px center; background-size: 12px; }
+#lib-sort:hover { background-color: var(--panel-2); color: var(--text); }
+/* 목차 — 절이 많을 때만, 접어 둔다 */
+details.toc { margin: 0 0 24px; font-size: var(--fs-label); }
+details.toc summary { cursor: pointer; color: var(--text-2); min-height: 24px; }
+details.toc ol { margin: 6px 0 0; padding-left: 20px; display: grid; gap: 2px; }
+details.toc .go-plain { color: var(--text-2); text-align: left; }
+details.toc .go-plain:hover { color: var(--brand); }
+#notes > h2:focus { outline: none; }
+/* notes 편집기 */
+.editor { margin: 0 0 24px; border: 1px solid var(--line-strong); border-radius: var(--radius-lg); background: var(--panel); padding: 12px; }
+.editor .ed-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; margin-bottom: 8px; font-size: var(--fs-label); }
+.editor textarea { width: 100%; border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; font: var(--fs-ui)/1.7 var(--font); background: var(--bg); resize: vertical; }
+.editor textarea:focus-visible { outline-offset: 0; background: var(--panel); }
+.editor .row { display: flex; gap: 6px; justify-content: flex-end; margin-top: 8px; }
+.editor #ed-note:empty { display: none; }
+.editor #ed-note { margin: 8px 0 0; color: var(--text-2); }
 .manage { margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--line); }
 .manage > h2 { font-size: var(--fs-h2); font-weight: 600; margin: 0 0 16px; }
 /* notes 본문 — 읽는 글 */
@@ -504,6 +524,7 @@ ul.cites .inf { color: #b8860b; }
   <symbol id="i-out" viewBox="0 0 24 24"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="m16 6-4-4-4 4M12 2v13"/></symbol>
   <symbol id="i-flask" viewBox="0 0 24 24"><path d="M9 3h6M10 3v6L4.5 18.5A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.5-2.5L14 9V3"/><path d="M7 15h10"/></symbol>
   <symbol id="i-cite" viewBox="0 0 24 24"><path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.4 2.6a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z"/></symbol>
   <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
   <symbol id="i-highlight" viewBox="0 0 24 24"><path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></symbol>
   <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
@@ -530,7 +551,9 @@ ul.cites .inf { color: #b8860b; }
 <div class="shell">
   <aside class="col lib" aria-label="서재">
     <div class="lib-head">
-      <input class="search" id="q" type="search" placeholder="제목·결론·arXiv id 검색" aria-label="서재 검색">
+      <div class="search-row"><input class="search" id="q" type="search" placeholder="제목·결론·arXiv id 검색" aria-label="서재 검색">
+        <select id="lib-sort" aria-label="목록 정렬" title="목록 정렬">
+          <option value="noted">정리순</option><option value="published">발표일순</option><option value="title">제목순</option></select></div>
       <div class="filters" id="filters"></div>
       <div class="filters" id="tagfilters"></div>
     </div>
@@ -591,6 +614,12 @@ const S = {
   tag: null, cmp: loadCmp(), paper: null, posts: [], post: null, ptab: 'linkedin',
 };
 const ORDER = ['to_read', 'noted', 'applied', 'fetched', 'hold'];
+const SORTS = {   // 서재 목록 정렬 — 고른 기준은 브라우저에 기억 (없으면 정리한 순)
+  noted: (a, b) => (b.noted_at || 0) - (a.noted_at || 0) || b.id.localeCompare(a.id),
+  published: (a, b) => (b.published || '').localeCompare(a.published || '') || b.id.localeCompare(a.id),
+  title: (a, b) => (a.title || '').localeCompare(b.title || '', 'en', { sensitivity: 'base' }),
+};
+try { S.sort = SORTS[localStorage.getItem('pa.libSort')] ? localStorage.getItem('pa.libSort') : 'noted'; } catch { S.sort = 'noted'; }
 function loadCmp() { try { return JSON.parse(localStorage.getItem('pa.cmp') || '[]'); } catch { return []; } }
 function saveCmp() { try { localStorage.setItem('pa.cmp', JSON.stringify(S.cmp)); } catch { /* 저장 안 돼도 이번 화면에선 동작 */ } renderCmpTab(); }
 function renderCmpTab() {
@@ -624,7 +653,8 @@ async function loadLib(markFresh = false) {
   S.lib = lib;
   keepFocus(() => { renderFilters(); renderLib(); renderAttach(); });
   if (markFresh && S.view === 'lib') {
-    if (S.sel && S.sel.kind === 'paper') showPaper(S.sel.id, true); else if (!S.sel) welcome();
+    if (S.editing) { const n = $('#ed-note'); if (n) n.textContent = '그사이 서재가 바뀌었습니다 — 저장할 때 notes 가 바뀌었는지 확인합니다.'; }
+    else if (S.sel && S.sel.kind === 'paper') showPaper(S.sel.id, true); else if (!S.sel) welcome();
   }
 }
 function renderFilters() {
@@ -660,8 +690,7 @@ function renderLib() {
   const names = S.lib.status_names, out = [];
   for (const st of ORDER) {
     if (S.filter !== 'all' && S.filter !== st) continue;
-    const ps = S.lib.papers.filter(p => p.status === st && matches(p))
-      .sort((a, b) => (b.noted_at || 0) - (a.noted_at || 0) || b.id.localeCompare(a.id));
+    const ps = S.lib.papers.filter(p => p.status === st && matches(p)).sort(SORTS[S.sort] || SORTS.noted);
     if (!ps.length) continue;
     out.push(`<div class="group"><span>${esc(names[st])}</span><span>${ps.length}</span></div>`);
     for (const p of ps) {
@@ -693,9 +722,42 @@ function renderLib() {
   rove();
 }
 
+/* ── notes 직접 편집 ── 저장은 불러온 때의 수정 시각과 함께 보낸다: 그사이 Claude 세션이 고쳤으면 서버가 409 로 막는다 */
+function openEditor() {
+  const p = S.paper; if (!p || !p.has_notes || $('#notes-editor')) return;
+  S.editing = { id: p.id, base: p.notes_mtime, orig: p.notes_md };
+  $('#notes').hidden = true; $('#toc')?.setAttribute('hidden', '');
+  $('#notes').insertAdjacentHTML('beforebegin', `<section class="editor" id="notes-editor" aria-label="notes 편집">
+    <div class="ed-head"><b>notes.md 편집</b><span class="hint">마크다운 · Ctrl+Enter 저장 · Esc 닫기</span></div>
+    <textarea id="notes-text" spellcheck="false" aria-label="notes 마크다운">${esc(p.notes_md)}</textarea>
+    <p class="hint" id="ed-note" role="status"></p>
+    <div class="row"><button class="btn quiet" id="ed-cancel">취소</button><button class="btn primary" id="ed-save">저장</button></div></section>`);
+  $('#edit-notes').setAttribute('aria-expanded', 'true');
+  const t = $('#notes-text'); t.style.height = Math.max(320, Math.min(t.scrollHeight + 4, innerHeight * 0.7)) + 'px'; t.focus();
+}
+function closeEditor(force) {
+  const t = $('#notes-text'); if (!t) return;
+  if (!force && t.value !== S.editing.orig && $('#ed-cancel').dataset.sure !== '1') {   // 고친 내용이 있으면 한 번 더 누르게
+    $('#ed-cancel').dataset.sure = '1'; $('#ed-cancel').textContent = '고친 내용 버리기'; $('#ed-note').textContent = '고친 내용이 있습니다 — 한 번 더 누르면 버립니다.'; return;
+  }
+  $('#notes-editor').remove(); $('#notes').hidden = false; $('#toc')?.removeAttribute('hidden'); S.editing = null;
+  $('#edit-notes')?.setAttribute('aria-expanded', 'false'); $('#edit-notes')?.focus();
+}
+async function saveEditor() {
+  const t = $('#notes-text'), ed = S.editing; if (!t || !ed) return;
+  $('#ed-save').disabled = true; $('#ed-note').textContent = '저장 중…';
+  try {
+    await api(`/api/papers/${encodeURIComponent(ed.id)}/notes`, { method: 'PUT', body: { text: t.value, base_mtime: ed.base } });
+    S.editing = null; await loadLib(); await showPaper(ed.id, true); toast('notes 를 저장했습니다'); $('#edit-notes')?.focus();
+  } catch (e) {
+    $('#ed-save').disabled = false;
+    $('#ed-note').innerHTML = `${esc(e.message)} <button class="btn sm" id="ed-reload">다시 불러오기 (고친 내용 버림)</button>`;
+  }
+}
+
 const REREAD_ASK = '이 논문 notes 를 다시 확인하고, 빠진 외부 평가가 있으면 보강해줘';
 async function showPaper(id, quiet = false) {
-  S.sel = { kind: 'paper', id }; S.fresh.delete(id);
+  S.sel = { kind: 'paper', id }; S.fresh.delete(id); S.editing = null;
   if (!quiet) $('#main').innerHTML = `<div class="doc"><div class="skeleton" style="width:60%;height:24px"></div><div class="skeleton"></div><div class="skeleton" style="width:80%"></div></div>`;
   keepFocus(() => renderLib()); renderAttach(); document.body.classList.remove('show-lib');
   let p;
@@ -727,13 +789,14 @@ async function showPaper(id, quiet = false) {
       ${cnts.map(([i, l, n, t]) => `<span class="cnt"${t ? ` title="${esc(t)}"` : ''}>${l} <b>${n}</b></span>`).join('')}
       <button class="btn quiet sm go-manage" data-jump="manage">태그·연결 관리</button></div>` : '';
   $('#main').innerHTML = `<article class="doc">
-    <div class="meta">${p.category ? `<span class="cat">${esc(p.category)}</span>` : ''}${p.published ? `<span>발표 ${esc(fmtDate(p.published))}</span>` : ''}<a href="${esc(p.abs_url)}" target="_blank" rel="noopener">arXiv ${esc(p.id)}</a></div>
+    <div class="meta">${p.category ? `<span class="cat">${esc(p.category)}</span>` : ''}${p.published ? `<span>발표 ${esc(fmtDate(p.published))}</span>` : ''}<a href="${esc(p.abs_url)}" target="_blank" rel="noopener">arXiv ${esc(p.id)}</a><a href="https://arxiv.org/pdf/${esc(p.id)}" target="_blank" rel="noopener">PDF 원문</a></div>
     <h1 class="title" tabindex="-1">${esc(p.title)}</h1>
     ${authors ? `<div class="authors">${authors}</div>` : ''}
     <div class="bar">
       ${stBtns}<span class="grow"></span>
       ${p.has_notes ? `<button class="btn" data-cmp="${esc(p.id)}" aria-pressed="${inCmp}">${inCmp ? ic('check') + '비교에 담김' : ic('compare') + '비교에 담기'}</button>
-        <button class="btn" data-ask="이 논문으로 paper-post 글 초안 만들어줘 (LinkedIn·블로그)">${ic('pen')}글 초안 만들기</button>` : ''}
+        <button class="btn" data-ask="이 논문으로 paper-post 글 초안 만들어줘 (LinkedIn·블로그)">${ic('pen')}글 초안</button>
+        <button class="btn" id="edit-notes" aria-controls="notes-editor" aria-expanded="false" title="notes.md 를 직접 고칩니다">${ic('edit')}편집</button>` : ''}
       ${ask}
     </div>
     <div class="inline-confirm" id="reread-box" role="group" aria-label="다시 정리 확인" hidden>
@@ -754,6 +817,12 @@ async function showPaper(id, quiet = false) {
   dedupe($('#notes'), p);
   for (const c of document.querySelectorAll('#notes :not(pre) > code')) if (c.textContent.length > 40 && /[가-힣]/.test(c.textContent)) c.classList.add('flow');
   const sm = $('#notes > details.src-meta'); if (sm) $('#main article .concl')?.after(sm);   // 읽은 범위·정리 시각은 결론 바로 아래 (믿을 근거)
+  const hs = [...document.querySelectorAll('#notes > h2')];
+  if (hs.length >= 3) {
+    hs.forEach((h, i) => { h.id = `sec-${i}`; h.tabIndex = -1; });
+    $('#notes').insertAdjacentHTML('beforebegin', `<details class="toc" id="toc"><summary>목차 (절 ${hs.length}개)</summary><ol>${
+      hs.map((h, i) => `<li><button class="go-plain" data-goto="sec-${i}">${esc(h.textContent.trim())}</button></li>`).join('')}</ol></details>`);
+  }
   linkRefs($('#notes'), p.id, refOwner);
   // 누른 카드·링크가 사라졌으면(가운데를 다시 그림) 포커스가 body 로 떨어진다 — 연 논문의 제목으로
   if (!quiet && (!document.activeElement || document.activeElement === document.body)) $('#main h1.title')?.focus({ preventScroll: true });
@@ -941,10 +1010,10 @@ function renderPub() {
       <div class="pub-rows">${done.map(row).join('')}</div></details>` : ''}
   </div>` : '';
   const head = `<div class="pub-head"><h1 class="h2" style="margin:0">발행</h1>
-    <p class="meta" style="margin:4px 0 0">논문을 열고 <b>글 초안 만들기</b>를 누르면 Claude 가 초안을 씁니다. 확인한 뒤 <b>LinkedIn 에 게시</b>하거나 복사해서 올립니다.</p>
+    <p class="meta" style="margin:4px 0 0">논문을 열고 <b>글 초안</b>를 누르면 Claude 가 초안을 씁니다. 확인한 뒤 <b>LinkedIn 에 게시</b>하거나 복사해서 올립니다.</p>
     ${groups}</div>`;
   const d = S.postData;
-  if (!d) { $('#main').innerHTML = `<div class="pub-wrap">${head}<div class="empty"><h2>아직 초안이 없습니다</h2><p>예: 서재에서 논문을 열고 <b>글 초안 만들기</b>, 또는 대화창에 <span class="ex">이 두 논문 엮어서 링크드인 글 써줘</span></p></div></div>`; return; }
+  if (!d) { $('#main').innerHTML = `<div class="pub-wrap">${head}<div class="empty"><h2>아직 초안이 없습니다</h2><p>예: 서재에서 논문을 열고 <b>글 초안</b>, 또는 대화창에 <span class="ex">이 두 논문 엮어서 링크드인 글 써줘</span></p></div></div>`; return; }
   const kinds = [['linkedin', 'LinkedIn', d.linkedin], ['blog', '블로그 (마크다운)', d.blog], ['tistory', '티스토리 (HTML)', d.blog]].filter(k => k[2]);
   if (!kinds.some(k => k[0] === S.ptab)) S.ptab = kinds[0] ? kinds[0][0] : 'linkedin';
   const v = S.ptab === 'tistory' ? d.blog : d[S.ptab];
@@ -1285,7 +1354,9 @@ function mdLite(t) {
     if (l.trim()) html += `<p>${l}</p>`;
   }
   if (list) html += '</ul>';
-  return html.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>');
+  return html.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>')
+    // 정리한 notes 파일 경로는 그 논문을 여는 링크로 (같은 노트가 가운데에 열린다)
+    .replace(/<code>library\/papers\/([\w.-]+)\/notes\.md<\/code>/g, '<button class="go-plain" data-paper="$1">노트 보기</button>');
 }
 function onEvent(e) {
   const box = $('#msgs'), d = e.data, wrap = $('#msgs-wrap');
@@ -1395,6 +1466,11 @@ document.addEventListener('click', async ev => {
     const first = $('#lib-list .item'); if (first) rove(first);
     return;
   }
+  if (t.id === 'edit-notes') return openEditor();
+  if (t.id === 'ed-cancel') return closeEditor(false);
+  if (t.id === 'ed-save') return saveEditor();
+  if (t.id === 'ed-reload') { S.editing = null; return showPaper(S.paper.id, true); }
+  if (t.dataset.goto) { const h = document.getElementById(t.dataset.goto); if (h) { h.scrollIntoView({ block: 'start', behavior: 'smooth' }); h.focus({ preventScroll: true }); } return; }
   if (t.dataset.jump) { const el = $('#' + t.dataset.jump); if (el) { el.scrollIntoView({ block: 'start', behavior: 'smooth' }); el.focus({ preventScroll: true }); } return; }
   if (t.dataset.tagf) { S.tag = S.tag === t.dataset.tagf ? null : t.dataset.tagf; keepFocus(() => { renderFilters(); renderLib(); }); return; }
   if (t.dataset.tagdel) return saveTags(S.paper.tags.filter(x => x !== t.dataset.tagdel));
@@ -1553,6 +1629,13 @@ $('#input').addEventListener('keydown', e => {
   send();
 });
 $('#q').addEventListener('input', e => { S.q = e.target.value.trim(); renderLib(); });
+$('#lib-sort').value = S.sort;
+$('#lib-sort').addEventListener('change', e => { S.sort = e.target.value; try { localStorage.setItem('pa.libSort', S.sort); } catch { /* 이번 화면만 */ } renderLib(); });
+document.addEventListener('keydown', e => {   // 편집기: Ctrl/⌘+Enter 저장, Esc 닫기 (한글 조합 중 제외)
+  if (e.target.id !== 'notes-text' || e.isComposing) return;
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); saveEditor(); }
+  else if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); closeEditor(false); }
+}, true);
 document.addEventListener('keydown', e => {   // 태그 직접 입력 (한글 조합 중 Enter 무시), 메모 Ctrl+Enter 저장
   if (e.target.id === 'tag-in' && e.key === 'Enter') {
     e.preventDefault();

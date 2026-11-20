@@ -47,6 +47,11 @@ class MemoIn(BaseModel):
     text: str
 
 
+class NotesIn(BaseModel):
+    text: str
+    base_mtime: float | None = None
+
+
 class AppliedIn(BaseModel):
     where: str
     took: str = ""
@@ -135,6 +140,10 @@ def create_app(root: Path, *, backends: dict[str, ChatBackend] | None = None, db
     @app.put("/api/papers/{aid}/tags")
     def set_tags(aid: str, body: TagsIn):
         return guard(svc.set_tags, aid, body.tags)
+
+    @app.put("/api/papers/{aid}/notes")
+    def set_notes(aid: str, body: NotesIn):
+        return guard(svc.set_notes, aid, body.text, body.base_mtime)
 
     @app.put("/api/papers/{aid}/memo")
     def set_memo(aid: str, body: MemoIn):

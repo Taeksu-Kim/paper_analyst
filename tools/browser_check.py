@@ -224,7 +224,7 @@ with sync_playwright() as p:
           and page.inner_text("#notes").count(page.inner_text("article .concl .v")[:30]) == 0)
     check("논문: 결론 블록 + notes 렌더 (표)", page.locator("article .md table").count() >= 1)
     check("논문: 상태 한 묶음(자동|적용함|보류) + arXiv 는 메타 줄 링크",
-          page.locator("article .seg button[data-st]").count() == 3 and page.locator("article .meta a[href*='arxiv.org']").count() == 1)
+          page.locator("article .seg button[data-st]").count() == 3 and page.locator("article .meta a[href*='arxiv.org/abs']").count() == 1)
     # 쓰인 곳 — 판정기 초안(fixture)이 쓴 논문
     page.click("#lib-list button[data-paper='2603.28052']")
     page.wait_for_function("document.querySelector('article h1') && document.querySelector('article h1').innerText.includes('Meta-Harness')")
@@ -559,7 +559,7 @@ with sync_playwright() as p:
     check("대화: 비용은 API 환산 + 구독 안내", "구독이면 사용량만 차감" in page.inner_text(".endline:has-text('API 요금 환산')"))
     check("도구 줄: 완료·거부 표시", page.locator(".tool .st.ok").count() == 2 and page.locator(".tool .st.bad").count() == 1)
     check("거부 안내", "허용 목록 밖의 도구 1건" in page.inner_text("#msgs"))
-    check("답: 마크다운(굵게·코드·목록)", page.locator(".msg.bot b").count() == 1 and page.locator(".msg.bot code").count() == 1
+    check("답: 마크다운(굵게·목록) + notes 경로는 '노트 보기' 링크", page.locator(".msg.bot b").count() == 1 and page.locator(".msg.bot button[data-paper]").count() == 1
           and page.locator(".msg.bot li").count() == 2)
     page.wait_for_function(f"document.querySelector(\"button[data-paper='{TARGET}'] .new\") || document.querySelector('article .concl')")
     check("서재 실시간 반영: 결론이 논문 화면에", "가짜 세션이 쓴 결론" in page.inner_text("#main"))
@@ -707,8 +707,50 @@ with sync_playwright() as p:
     nested = page.evaluate("[...document.querySelectorAll('#notes li li')].length")
     check("notes 하위 목록이 목록으로 보임 (글자로 뭉치지 않음)", nested > 0 and not page.evaluate("/\\n\\s*- \\*\\*/.test(document.querySelector('#notes').innerText)"), str(nested))
     page.screenshot(path=str(TMP / "shot_1440_manage.png"))
+
+    # 읽기 도구 (2026-11-21): 목차 · 정렬 · notes 직접 편집(충돌 포함) · 대화의 '노트 보기'
+    page.click("#lib-list button[data-paper='2603.28052']"); page.wait_for_selector("article .concl")
+    n_h2 = page.locator("#notes > h2").count()
+    if n_h2 >= 3:
+        page.click("#toc summary"); page.click("#toc button[data-goto='sec-1']"); page.wait_for_timeout(600)
+        check("목차: 절이 많으면 접힌 목차 → 누르면 그 절로 포커스", page.evaluate("document.activeElement.id") == "sec-1", str(n_h2))
+    else:
+        check("목차: 절이 적으면 목차 없음", page.locator("#toc").count() == 0, str(n_h2))
+    page.select_option("#lib-sort", "title")
+    grp = page.evaluate("""() => { const out = []; let cur = null;   // 묶음마다 [보이는 순서, 브라우저 정렬 규칙으로 정렬한 순서]
+      for (const e of document.querySelectorAll('#lib-list > *')) { if (e.classList.contains('group')) { cur = []; out.push(cur); } else if (cur && e.dataset.paper) cur.push(e.querySelector('.t').innerText); }
+      return out.filter(g => g.length > 1).map(g => [g, [...g].sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }))]); }""")
+    check("정렬: 제목 순 (상태 묶음 안에서)", grp and all(a == b for a, b in grp), str([a[:2] for a, _ in grp][:2]))
+    page.reload(); page.wait_for_selector("#lib-list .item")
+    check("정렬: 새로고침 뒤에도 고른 기준 기억", page.input_value("#lib-sort") == "title")
+    page.select_option("#lib-sort", "noted")
+    page.click("#lib-list button[data-paper='2603.28052']"); page.wait_for_selector("article .concl")
+    page.click("#edit-notes")
+    nf = TMP / "library/papers/2603.28052/notes.md"
+    check("편집: 마크다운 편집기가 열리고 포커스", page.is_visible("#notes-text") and page.evaluate("document.activeElement.id") == "notes-text"
+          and page.input_value("#notes-text").strip() == nf.read_text(encoding="utf-8").strip())
+    page.fill("#notes-text", page.input_value("#notes-text") + "\n\n## 사람이 덧붙인 절\n화면에서 고친 문장\n")
+    page.click("#ed-save")
+    page.wait_for_function("document.querySelector('#notes') && document.querySelector('#notes').innerText.includes('화면에서 고친 문장')")
+    check("편집: 저장하면 파일과 화면에 반영, 편집기 닫힘", "화면에서 고친 문장" in nf.read_text(encoding="utf-8") and page.locator("#notes-editor").count() == 0)
+    page.click("#edit-notes"); time.sleep(0.05)
+    nf.write_text(nf.read_text(encoding="utf-8") + "\nClaude 가 그사이 고침\n", encoding="utf-8")   # 다른 곳(Claude 세션)이 고침
+    page.fill("#notes-text", "# 내 수정만 남은 글\n"); page.click("#ed-save")
+    page.wait_for_function("document.querySelector('#ed-note') && document.querySelector('#ed-note').innerText.includes('바뀌었습니다')")
+    check("편집: 그사이 바뀌었으면 덮어쓰지 않고 알림", "Claude 가 그사이 고침" in nf.read_text(encoding="utf-8") and "내 수정만" not in nf.read_text(encoding="utf-8"))
+    page.click("#ed-reload"); page.wait_for_function("!document.querySelector('#notes-editor')")
+    page.click("#edit-notes"); page.type("#notes-text", "x"); page.keyboard.press("Escape")
+    still = page.locator("#notes-editor").count() == 1
+    page.keyboard.press("Escape")
+    check("편집: 고친 내용이 있으면 Esc 두 번에 닫힘 → 편집 버튼으로 포커스", still and page.locator("#notes-editor").count() == 0
+          and page.evaluate("document.activeElement.id") == "edit-notes")
+    links = page.locator("#msgs button[data-paper]")
+    if links.count():
+        pid = links.first.get_attribute("data-paper"); links.first.click(); page.wait_for_selector("article .concl")
+        check("대화: notes 경로 대신 '노트 보기' → 그 논문이 열림", page.evaluate("S.sel && S.sel.id") == pid, pid)
+    errors = [e for e in errors if "409 (Conflict)" not in e]   # 편집 충돌 확인은 일부러 낸 409
     check("JS 오류 없음", not errors, "; ".join(errors[:5]))
-    unexpected = [e for e in expected_4xx if "/abstract" not in e]
+    unexpected = [e for e in expected_4xx if "/abstract" not in e and not (e.startswith("409") and e.endswith("/notes"))]   # 충돌 확인은 일부러 낸 409
     check("4xx/5xx 응답 없음", not unexpected, "; ".join(unexpected[:5]))
     b.close()
 
