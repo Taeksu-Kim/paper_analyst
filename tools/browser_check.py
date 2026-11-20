@@ -297,9 +297,10 @@ with sync_playwright() as p:
         page.click("#lib-list button[data-paper='2606.28434']")
         page.wait_for_function("document.querySelector('article h1') && document.querySelector('article h1').innerText.includes('SWE-MeM')")
         cv = page.inner_text("article .concl .v")[:30]
-        check("논문(예전 양식): 결론 한 번만 + 기술 정보 접힘",
-              page.inner_text("#notes").count(cv) == 0 and page.locator("#notes details.src-meta").count() == 1
-              and not page.is_visible("#notes details.src-meta ul"))
+        check("논문(예전 양식): 결론 한 번만 + 읽은 범위는 결론 바로 아래 접힌 줄로",
+              page.inner_text("#notes").count(cv) == 0 and page.locator("article details.src-meta").count() == 1
+              and page.evaluate("document.querySelector('article .concl').nextElementSibling.matches('details.src-meta')")
+              and not page.is_visible("article details.src-meta ul"))
         page.click("#lib-list button[data-paper='2605.15184']")
         page.wait_for_selector("article .concl")
     has_priv = page.locator("details.private").count()
@@ -331,8 +332,8 @@ with sync_playwright() as p:
     page.wait_for_function("!document.querySelector('.tried')")
     check("적용 기록: 지우기 → 파일도 지움", not ap_file.exists())
     page.click("button[data-st='']")
-    page.wait_for_function("document.querySelector('#filters').innerText.includes('적용함 0')")
-    check("상태: 되돌리기", True)
+    page.wait_for_function("!document.querySelector('#filters').innerText.includes('적용함')")   # 0건 상태 필터는 숨긴다
+    check("상태: 되돌리기 (적용함 0건 → 필터에서 빠짐)", True)
     n_user = page.locator(".msg.user").count()
     page.click("#reread")
     check("다시 정리: 바로 보내지 않고 그 자리 확인 (설명·시작·취소)",
@@ -368,10 +369,11 @@ with sync_playwright() as p:
     page.wait_for_function(f"!document.querySelector(\"[data-cand='{tgt}']\")")
     page.wait_for_function("document.querySelector('#filters').innerText.includes('읽을 것 2')")
     check("후보: 단축키 j·r 로 판정", tgt != nxt and int(page.inner_text("#cand-n") or 0) == n_sig - 2)
-    page.fill("#q", "r"); page.keyboard.press("r")
+    # 후보함 탭에서는 서재 검색창이 숨는다 — 이 탭에 보이는 입력창(아직 대화가 없어 잠긴 대화 입력 대신 임시 입력창)으로 본다
+    page.evaluate("document.querySelector('.cand-head').insertAdjacentHTML('beforeend', '<input id=\"tmp-q\" aria-label=\"임시\">')")
+    page.fill("#tmp-q", "r"); page.press("#tmp-q", "r")
     page.wait_for_timeout(300)
     check("후보: 입력창에서 누른 r 은 판정 안 함", int(page.inner_text("#cand-n") or 0) == n_sig - 2)
-    page.fill("#q", "")
     page.click("button[data-cv='decided']")
     page.wait_for_selector("button[data-dec='']")
     check("후보: 판정함 보기에 있음", first_id in page.inner_text("#main"))
@@ -526,14 +528,14 @@ with sync_playwright() as p:
           page.locator("#pub-done .pub-row[data-post='2026-11-16_judge']").count() == 1 and page.inner_text("#pub-n") == "1"
           and page.evaluate("document.querySelector('#pub-done').open") is True)
     page.screenshot(path=str(TMP / "shot_1440_li_done.png"))
-    page.click("button[data-paper='2603.28052']") if page.locator(".pub-body button[data-paper='2603.28052']").count() else None
+    page.click(".pub-body button[data-paper='2603.28052']") if page.locator(".pub-body button[data-paper='2603.28052']").count() else None
     page.wait_for_selector("article h1")
     check("재료 링크 → 논문 화면 + 글 초안 버튼", page.locator("button[data-ask*='paper-post']").count() == 1)
 
     # 대화: 새 대화 메뉴 (로컬 잠김)
     page.click(f"button[data-paper='{TARGET}']")
     page.wait_for_selector("article h1")
-    check("받기만 한 논문: 정리 시키기 버튼", page.locator("button[data-ask]").first.inner_text() == "Claude 에게 정리 시키기")
+    check("받기만 한 논문: 정리 시키기 버튼", page.locator("button[data-ask]").first.inner_text() == "Claude에게 정리 시키기")
     page.click("#new-chat")
     page.wait_for_selector(".menu")
     check("새 대화 메뉴: 로컬 LLM 잠김 + 켜는 법", page.is_disabled(".menu button[data-backend='local']")
@@ -641,6 +643,7 @@ with sync_playwright() as p:
             page.click("#lib-toggle")
             time.sleep(0.2)
             page.screenshot(path=str(TMP / f"shot_{w}_list.png"))
+            check("[390] 목록 화면 가로 스크롤 없음 (태그 줄은 안에서만 민다)", page.evaluate("document.documentElement.scrollWidth <= innerWidth"))
             page.click(f"button[data-paper='{TARGET}']")
             time.sleep(0.4)
             check("[390] 가로 스크롤 없음", page.evaluate("document.documentElement.scrollWidth <= innerWidth"))
@@ -660,17 +663,50 @@ with sync_playwright() as p:
             page.screenshot(path=str(TMP / f"shot_{w}_chat.png"))
             page.keyboard.press("Escape")
             time.sleep(0.3)
+    # 테마는 하나 (다크모드 없음) — 다크 선호 브라우저에서도 같은 색
+    page.set_viewport_size({"width": 1440, "height": 900})
+    page.click("#tab-lib")
+    light_bg = page.evaluate("getComputedStyle(document.querySelector('.top')).backgroundColor")
     dark = b.new_context(color_scheme="dark", viewport={"width": 1440, "height": 900}).new_page()
     dark.on("pageerror", lambda e: errors.append(str(e)))
     dark.goto(URL)
     dark.wait_for_selector("button.concl")
-    dark.click(f"button[data-paper='{TARGET}']")
-    dark.wait_for_selector("article .concl")
-    dark.screenshot(path=str(TMP / "shot_1440_dark.png"))
-    dark.click("#tab-pub")
-    dark.wait_for_selector(".pub-body")
-    dark.click("#pub-done > summary")
-    dark.screenshot(path=str(TMP / "shot_1440_pub_dark.png"))
+    check("테마 하나: 다크 선호여도 같은 색", dark.evaluate("getComputedStyle(document.querySelector('.top')).backgroundColor") == light_bg
+          and dark.evaluate("getComputedStyle(document.body).backgroundColor") == page.evaluate("getComputedStyle(document.body).backgroundColor"), light_bg)
+    dark.close()
+
+    # 개편 배치: 홈 할 일 · 서재 목록은 서재 탭에서만 · 대화 칸 접기(기억) · 결론 → 본문 → 관리 순서
+    page.goto(URL)
+    page.wait_for_selector("button.concl")
+    page.wait_for_function("document.querySelector('#cand-n').textContent.trim() !== ''")
+    todo = page.inner_text("#todo")
+    check("홈 할 일: 정리 전·판정할 후보·게시 전 초안", "정리 전" in todo and "판정할 후보" in todo and "게시 전 초안" in todo, todo.replace(chr(10), " "))
+    page.click("button[data-todo='fetched']")
+    check("할 일 '정리 전' → 서재가 받음으로 걸러짐", page.get_attribute("button[data-f='fetched']", "aria-pressed") == "true")
+    page.click("button[data-f='all']")
+    page.click("#tab-cmp")
+    page.wait_for_selector(".cmp-pick, table.cmp")
+    check("서재 아닌 탭: 서재 목록 칸 숨김", not page.is_visible(".lib"))
+    page.click("#tab-lib")
+    check("서재 탭: 서재 목록 칸 보임", page.is_visible(".lib"))
+    page.click("#chat-toggle")
+    check("넓은 화면: 대화 버튼으로 대화 칸 접기", not page.is_visible(".chat") and page.get_attribute("#chat-toggle", "aria-pressed") == "false")
+    page.reload()
+    page.wait_for_selector("button.concl")
+    check("대화 칸 접은 상태를 새로고침 뒤에도 기억", not page.is_visible(".chat"))
+    page.click("#chat-toggle")
+    check("다시 누르면 대화 칸 보임", page.is_visible(".chat") and page.get_attribute("#chat-toggle", "aria-pressed") == "true")
+    page.click("#lib-list button[data-paper='2603.28052']")
+    page.wait_for_selector("article .concl")
+    order = page.evaluate("""() => { const y = s => { const e = document.querySelector(s); return e ? e.getBoundingClientRect().top : null; };
+      return [y('article .concl'), y('#notes'), y('#manage')]; }""")
+    check("상세 순서: 결론 → notes 본문 → 이 논문 관리", None not in order and order[0] < order[1] < order[2], str(order))
+    page.click("button[data-jump='manage']")
+    page.wait_for_timeout(600)
+    check("'관리로' → 관리 영역으로 이동·포커스", page.evaluate("document.activeElement.id") == "manage")
+    nested = page.evaluate("[...document.querySelectorAll('#notes li li')].length")
+    check("notes 하위 목록이 목록으로 보임 (글자로 뭉치지 않음)", nested > 0 and not page.evaluate("/\\n\\s*- \\*\\*/.test(document.querySelector('#notes').innerText)"), str(nested))
+    page.screenshot(path=str(TMP / "shot_1440_manage.png"))
     check("JS 오류 없음", not errors, "; ".join(errors[:5]))
     unexpected = [e for e in expected_4xx if "/abstract" not in e]
     check("4xx/5xx 응답 없음", not unexpected, "; ".join(unexpected[:5]))

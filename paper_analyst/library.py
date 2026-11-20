@@ -197,19 +197,34 @@ def _gfm_lists(text: str) -> str:
     notes 는 GitHub 식으로 쓰여 있어 그대로면 '가져갈 것·믿어도 되는 결과' 목록이 한 문단으로 뭉친다 → 보정."""
     out: list[str] = []
     in_code = False
-    indents = {len(m.group(1)) for m in map(_LIST.match, text.split("\n")) if m}
-    unit = 2 if any(i % 4 == 2 for i in indents) else 4      # 이 문서의 들여쓰기 단위
+    stack: list[int] = []   # 지금 목록의 단계별 원래 들여쓰기 — 칸 수가 아니라 '앞 항목보다 깊은가'로 단계를 정한다
+    spaced: set[int] = set()   # 빈 줄을 넣어 연 하위 목록의 단계 — 거기서 빠져나올 때도 빈 줄이 있어야 위 단계로 돌아간다
     for line in text.split("\n"):
         if line.lstrip().startswith("```"):
             in_code = not in_code
         m = None if in_code else _LIST.match(line)
+        if not m and line.strip() and not line.startswith(" "):
+            stack, spaced = [], set()   # 들여쓰지 않은 글이 나오면 목록이 끝났다
         if m:
             indent = len(m.group(1))
-            if indent and unit == 2:
-                line = " " * (indent // 2 * 4) + line[indent:]
+            while stack and stack[-1] > indent:
+                stack.pop()
+            if not stack or stack[-1] < indent:
+                stack.append(indent)
+            level = len(stack) - 1
+            # 2칸·3칸·5칸 하위 목록을 4칸 배수로 (모자라면 글로 뭉치고, 넘치면 코드 블록이 된다)
+            line = " " * (level * 4) + line[indent:]
             prev = out[-1] if out else ""
-            if prev.strip() and not _LIST.match(prev) and not prev.startswith((" ", "|", "#")):
-                out.append("")
+            if prev.strip() and not _LIST.match(prev) and not prev.startswith(("|", "#")):
+                # 들여쓴 줄(항목의 이어지는 글) 뒤에서는 더 깊이 들여쓴 하위 목록일 때만 띄운다 —
+                # 같은 깊이의 다음 항목까지 띄우면 목록 전체가 문단 간격으로 벌어진다
+                if not prev.startswith(" ") or level * 4 > len(prev) - len(prev.lstrip()):
+                    out.append("")
+                    if prev.startswith(" "):
+                        spaced.add(level)
+            if prev.strip() and any(lv > level for lv in spaced):
+                out.append("")   # 빈 줄로 연 하위 목록 뒤의 위 단계 항목 — 안 띄우면 하위 목록에 붙는다
+                spaced = {lv for lv in spaced if lv <= level}
         out.append(line)
     return "\n".join(out)
 

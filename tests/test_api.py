@@ -445,3 +445,14 @@ def test_applied_log(env):
     rid = recs[0]["id"]
     assert [r["where"] for r in c.delete(f"{u}/{rid}").json()["applied"]] == ["사내 평가 파이프라인", "손으로 쓴 기록"]
     assert c.delete(f"{u}/nope").status_code == 404
+
+
+def test_notes_nested_list_after_continuation(env):
+    """항목의 이어지는 줄 바로 뒤 하위 목록(5칸·2칸 들여쓰기)이 글자나 코드 블록으로 뭉치지 않고 목록으로 (Meta-Harness notes 에서 실측)."""
+    root, _, _, mk = env
+    (root / "library/papers/2604.15597/notes.md").write_text(
+        "## 결론\n**판정.**\n- **가져갈 것:**\n  ① 첫째 설명\n  ② 패턴 3개:\n     - **초안 → 검증:** 하나\n     - **라벨 먼저:** 둘\n"
+        "       → 이어지는 줄\n- **믿어도 되는 결과:** 표 2\n  - 2칸 하위\n- **주의:** 셋\n")
+    h = mk().get("/api/papers/2604.15597").json()["notes_html"]
+    assert "<pre>" not in h and "- **" not in h and "- <strong>" not in h
+    assert h.count("<li>") == 6 and h.count("<ul>") == 3   # 위 3 + 아래 2 + 1
