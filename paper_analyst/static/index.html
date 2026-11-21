@@ -70,7 +70,7 @@ b, strong { font-weight: 600; }   /* 굵기는 400·500·600 세 단계 */
 .top .btn[aria-pressed="true"] { background: none; color: var(--text); }
 .top .chip.profile b { color: var(--text); font-weight: 600; max-width: 56px; overflow: hidden; text-overflow: ellipsis; }
 /* 탭의 개수 배지 (0이면 숨김) */
-.tab .n { position: absolute; top: 4px; right: 6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--brand); color: #fff; font-size: var(--fs-cap); line-height: 18px; font-weight: 600; text-align: center; font-variant-numeric: tabular-nums; }
+.tab .n { position: absolute; top: 4px; left: 34px; min-width: 20px; height: 17px; padding: 0 5px; border-radius: 9px; background: var(--panel); border: 1px solid var(--line-strong); color: var(--text-2); font-size: 11px; line-height: 15px; font-weight: 600; text-align: center; font-variant-numeric: tabular-nums; }
 .tab .n:empty { display: none; }
 .spacer { flex: 1; }
 .chip { font-size: var(--fs-cap); color: var(--text-2); border: 1px solid var(--line-strong); border-radius: 999px; padding: 2px 10px; white-space: nowrap; background: var(--panel); }
@@ -104,7 +104,13 @@ b, strong { font-weight: 600; }   /* 굵기는 400·500·600 세 단계 */
 .btn[aria-pressed="true"] .ic { color: inherit; }
 .lib-head .chip.profile { align-self: flex-start; }
 /* 서재 목록 */
-.lib { background: var(--bg); }
+.lib { background: var(--bg); position: relative; }
+/* 서재 목록 폭 손잡이 — 끌기·←/→·두 번 눌러 기본 폭. 평소엔 안 보이고 가리키면 선이 보인다 */
+.lib-resize { position: absolute; top: 0; bottom: 0; right: -5px; width: 10px; cursor: col-resize; z-index: 3; touch-action: none; border: 0; padding: 0; background: none; }
+.lib-resize::after { content: ''; position: absolute; top: 0; bottom: 0; left: 4px; width: 2px; background: transparent; transition: background .15s; }
+.lib-resize:hover::after, .lib-resize:focus-visible::after, body.resizing .lib-resize::after { background: var(--brand-line); }
+.lib-resize:focus-visible { outline: none; }
+body.resizing, body.resizing * { cursor: col-resize !important; user-select: none; }
 .lib-head { padding: 16px 16px 4px; display: flex; flex-direction: column; gap: 10px; }
 .search { width: 100%; height: 36px; padding: 0 12px 0 34px; border: 1px solid var(--line-strong); border-radius: var(--radius); font-size: var(--fs-ui);
   background: var(--panel) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23686c71' stroke-width='1.75' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E") no-repeat 10px 50% / 16px; }
@@ -112,22 +118,27 @@ b, strong { font-weight: 600; }   /* 굵기는 400·500·600 세 단계 */
 .search:focus-visible { outline-offset: 0; border-color: var(--brand); }
 .filters { display: flex; gap: 6px; align-items: center; }
 /* 상태 거르기: 밑줄 탭 (보기 전환 = 탭 모양, craft §2-10) */
-#filters { gap: 16px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--line); }
-#filters .btn { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; box-shadow: none; padding: 6px 0 8px; min-height: 32px; margin-bottom: -1px;
+#filters { gap: 2px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--line-strong); padding-left: 4px; }
+#filters .btn { border: 1px solid transparent; border-bottom: 0; border-radius: 6px 6px 0 0; background: none; box-shadow: none; padding: 6px 10px; min-height: 32px; margin-bottom: -1px;
   font-size: var(--fs-label); font-weight: 500; color: var(--text-2); flex-shrink: 0; }
 #filters .btn:hover { color: var(--text); background: none; }
-#filters .btn[aria-pressed="true"] { color: var(--text); border-bottom-color: var(--brand); background: none; }
+#filters .btn[aria-pressed="true"] { color: var(--text); font-weight: 600; background: var(--panel); border-color: var(--line-strong); }
 #filters .btn:focus-visible { outline-offset: -2px; }
 .filters .btn .c { color: var(--text-3); font-weight: 400; font-variant-numeric: tabular-nums; }
 /* 태그: 누를 수 있는 칩 하나씩 — 한 줄, 넘치면 옆으로 민다 */
-#tagfilters { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding: 2px; margin: -2px; mask-image: linear-gradient(to right, #000 calc(100% - 48px), transparent); }
+#tagfilters { flex-wrap: wrap; gap: 6px; padding: 2px; margin: -2px; }   /* 태그는 모두 보이게 줄바꿈 (잘리면 닿을 수 없다) */
 #tagfilters:empty { display: none; }
 .tagchip, #tagfilters .btn { border: 0; background: var(--panel-2); box-shadow: none; border-radius: 999px; padding: 3px 10px; min-height: 26px; font-size: var(--fs-cap); font-weight: 500; color: var(--text-2); flex-shrink: 0; cursor: pointer; line-height: 20px; }
 .tagchip .ic, #tagfilters .btn .ic { width: 12px; height: 12px; margin-right: 4px; vertical-align: -1px; color: var(--text-3); }
 .tagchip:hover, #tagfilters .btn:hover:not(:disabled) { background: #dfded5; color: var(--text); }
 #tagfilters .btn[aria-pressed="true"] { background: var(--brand-soft); color: var(--brand); }
 #tagfilters .btn:focus-visible { outline-offset: -2px; }
-#lib-list { padding: 0 8px 16px; }
+#lib-list { margin: 0 16px 16px; padding: 0; background: var(--panel); border: 1px solid var(--line-strong); border-top: 0; border-radius: 0 0 var(--r-card) var(--r-card); }
+#lib-list .item { border-radius: 0; border-top: 1px solid var(--line); padding: 10px 14px; }
+#lib-list .group { border-top: 1px solid var(--line); padding: 12px 14px 6px; }
+#lib-list > :first-child { border-top: 0; }
+#lib-list .group + .item { border-top: 0; }
+.lib-head { padding-bottom: 0; }
 .group { padding: 14px 10px 6px; font-size: var(--fs-cap); color: var(--text-3); font-weight: 500; display: flex; justify-content: space-between; }
 .group span:last-child { font-variant-numeric: tabular-nums; }
 /* 목록 행: 상태 아이콘 + 제목 2줄 + 결론 2줄 + id·날짜 */
@@ -137,16 +148,18 @@ b, strong { font-weight: 600; }   /* 굵기는 400·500·600 세 단계 */
 .item > span { display: block; }
 .item:hover { background: var(--panel-2); }
 .item:focus-visible { outline-offset: -2px; }
-.item[aria-current="true"] { background: var(--panel); box-shadow: var(--shadow-1); }
-.item[aria-current="true"]::before { content: ''; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 0 3px 3px 0; background: var(--brand); }
-.item .t { font-weight: 600; font-size: var(--fs-label); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-wrap: pretty; }
+.item[aria-current="true"] { background: var(--brand-soft); }
+.item .out { color: var(--brand-hover); font-weight: 500; }
+.item .t { font-weight: 400; color: var(--text-2); font-size: var(--fs-ui); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-wrap: pretty; }
 .item .c { font-size: var(--fs-label); color: var(--text-2); margin-top: 2px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
-.item .m { font-size: var(--fs-cap); color: var(--text-3); font-variant-numeric: tabular-nums; margin-top: 4px; display: flex; justify-content: space-between; gap: 8px; }
+.item .t.mine { font-weight: 600; color: var(--text); }
+.item .m { font-size: var(--fs-cap); color: var(--text-3); font-variant-numeric: tabular-nums; margin-top: 4px; display: flex; justify-content: space-between; gap: 12px; }
+.item .m .mt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .new { font-size: var(--fs-cap); font-weight: 600; color: var(--concl-label); background: var(--hl); border-radius: 3px; padding: 0 4px; margin-left: 4px; }
 .lock { font-size: var(--fs-cap); color: var(--text-3); border: 1px solid var(--line-strong); border-radius: 4px; padding: 0 4px; margin-left: 6px; font-weight: 500; }
 /* 가운데 — 종이 바탕 위에 떠 있는 읽는 지면 */
-.main { background: var(--bg); padding: 8px 0; }
-.main > .scroll { background: var(--panel); border-radius: var(--radius-lg); box-shadow: var(--shadow-1); }
+.main { background: var(--bg); padding: 0; }
+.main > .scroll { background: none; }
 .doc { max-width: 760px; margin: 0 auto; padding: 32px 40px 80px; }
 .doc h1.title:focus { outline: none; }   /* 논문을 열면 제목으로 포커스를 옮긴다 (보이는 링은 필요 없음) */
 .doc h1.title { font-weight: 600; font-size: var(--fs-h1); line-height: 1.22; margin: 12px 0 8px; text-wrap: balance; letter-spacing: -.022em; }
@@ -271,7 +284,7 @@ button.tag.sug:hover { border-color: var(--brand); color: var(--brand); }
 .memo .row { display: flex; gap: 8px; align-items: center; justify-content: flex-end; margin-top: 4px; }
 
 /* 발행 */
-.pub-wrap { max-width: 880px; margin: 0 auto; }
+.pub-wrap { max-width: 944px; }   /* 다른 탭과 같은 왼쪽 시작선 (가운데 정렬 X) */
 .pub-head { padding: 24px 32px 8px; }
 .pub-groups { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin-top: 12px; }
 .pub-group { min-width: 0; }
@@ -354,7 +367,7 @@ table.cmp .empty-cell { color: var(--text-3); }
 .cand .abstract { margin-top: 8px; font-size: var(--fs-label); line-height: 1.7; max-width: 720px; }
 
 /* 대화 */
-.chat { background: var(--bg); }
+.chat { background: var(--bg); border-left: 1px solid var(--line-strong); }   /* 본문과 같은 바탕이라 선이 경계 */
 .chat-head { padding: 16px 12px 8px; display: flex; gap: 6px; align-items: center; }
 .chat-head .btn { min-height: 36px; }
 /* 대화 고르기 (세션 종류는 아래 줄에 따로 보인다) — 브라우저 기본 모양 대신 같은 체계의 입력 상자 */
@@ -469,13 +482,178 @@ ul.cites .inf { color: #b8860b; }
 .toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--panel); padding: 8px 16px; border-radius: var(--radius); font-size: var(--fs-label); z-index: 20; opacity: 0; transition: opacity .2s; pointer-events: none; box-shadow: var(--shadow-pop); }
 .toast.on { opacity: 1; }
 
+/* ── 카드 콘셉트 (2026-11-21, 사용자 선택 "결론 카드 목록함") ──
+   논문 한 편 = 카드 한 장. 표제는 내 결론(600), 내 말이 없으면 제목이 400으로 표제 자리. 손에 든 카드 하나만 떠 있다. */
+:root { --r-card: 8px; --lift: 0 1px 2px rgba(26, 29, 33, .06), 0 10px 28px rgba(26, 29, 33, .11); }
+.btn.line { border-color: var(--line-strong); background: var(--panel); color: var(--text); box-shadow: none; }
+/* 대화 접힘 띠 */
+.chat-strip { display: none; }
+#chat-close { display: none; }
+@media (min-width: 1181px) { .top #chat-toggle { display: none; } #chat-close { display: inline-block; padding: 6px 8px; } #chat-close .ic { margin: 0; } }
+@media (min-width: 1181px) {
+  body.chat-hidden .shell { grid-template-columns: var(--lib-w) minmax(0, 1fr) 64px; }
+  body.chat-hidden:not([data-view="lib"]) .shell { grid-template-columns: minmax(0, 1fr) 64px; }
+  body.chat-hidden .chat-strip { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 0; background: var(--panel); border-left: 1px solid var(--line-strong); }
+  body.chat-hidden .main { padding-right: 8px; }
+}
+.chat-strip .btn { width: 52px; min-height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 6px 2px; font-size: var(--fs-cap); }
+.chat-strip .btn .ic { width: 20px; height: 20px; margin: 0; color: inherit; }
+.chat-strip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-3); }
+.chat-strip .dot.run { background: var(--warn); }
+/* 책상 */
+.desk { max-width: 1180px; padding: 24px 32px 64px; }
+.pageh { display: flex; align-items: baseline; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+.pageh h1 { font-size: var(--fs-h2); font-weight: 600; margin: 0; letter-spacing: -.01em; }
+.pageh .sub { color: var(--text-3); font-size: var(--fs-label); }
+.piles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; margin-bottom: 36px; }
+.pile .ph { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.pile .pl { font-size: var(--fs-label); font-weight: 600; color: var(--text-2); }
+.pile .num { font-size: var(--fs-h2); font-weight: 600; font-variant-numeric: tabular-nums; }
+.pile .ph .btn { margin-left: auto; }
+.pile .pc { background: var(--panel); border: 1px solid var(--line-strong); border-radius: var(--r-card); padding: 16px 18px 14px; min-height: 164px; display: flex; flex-direction: column; position: relative; }
+/* 뒤에 카드가 더 있으면 한 장 더 비치게 — 개수는 '뒤에 n장'으로 글자로도 말한다 */
+.pile .pc.stack { box-shadow: 0 5px 0 -1px var(--panel), 0 5px 0 0 var(--line-strong); margin-bottom: 5px; }
+.pile .pt { font-size: var(--fs-ui); line-height: 1.5; color: var(--text); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.pile .pt.plain { color: var(--text-2); }
+.pile .pt .none { display: block; font-size: var(--fs-cap); color: var(--text-3); padding-bottom: 6px; margin-bottom: 6px; border-bottom: 1px dashed var(--line-strong); }
+.pile .sig, .pile .pe { margin-top: 6px; }
+.pile .pe { color: var(--text-3); font-size: var(--fs-label); }
+.pile .excerpt { margin: 8px 0 0; font-size: var(--fs-label); line-height: 1.6; color: var(--text-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.pile .chk { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-label); color: var(--ok); margin-right: auto; }
+.pile .chk .ic { width: 14px; height: 14px; }
+.pile .chk.bad { color: var(--err); }
+.pile .sig { white-space: nowrap; overflow: hidden; }
+.pile .pf { margin-top: auto; padding-top: 12px; display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+.pile .pf .hint { margin-left: auto; }
+.pile.zero .pc { background: transparent; border-style: dashed; }
+/* 서랍 위 색인 탭 — 보기 전환은 모든 화면에서 이 모양 하나 */
+.ix { display: flex; align-items: flex-end; gap: 2px; border-bottom: 1px solid var(--line-strong); padding-left: 8px; }
+.ix [role="tab"] { padding: 7px 12px 6px; border: 1px solid transparent; border-bottom: 0; border-radius: 6px 6px 0 0; margin-bottom: -1px; background: none; cursor: pointer;
+  font-size: var(--fs-label); font-weight: 500; color: var(--text-2); }
+.ix [role="tab"] .n { color: var(--text-3); margin-left: 6px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.ix [role="tab"]:hover { color: var(--text); }
+.ix [role="tab"][aria-selected="true"] { background: var(--panel); border-color: var(--line-strong); color: var(--text); font-weight: 600; }
+.ix .aside { margin-left: auto; padding: 0 4px 7px; font-size: var(--fs-cap); color: var(--text-3); }
+.drawer { background: var(--panel); border: 1px solid var(--line-strong); border-top: 0; border-radius: 0 0 var(--r-card) var(--r-card); }
+.drow { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; width: 100%; text-align: left; padding: 13px 18px; border: 0; border-top: 1px solid var(--line); background: none; cursor: pointer; color: var(--text); font: inherit; }
+.drow:first-child { border-top: 0; }
+.drow:hover { background: #f8f8f9; }
+.drow.concl.card { border: 0; border-top: 1px solid var(--line); border-radius: 0; margin: 0; padding: 13px 18px; box-shadow: none; }
+.drow.concl.card:first-child { border-top: 0; }
+.drow.concl.card:hover { background: #f8f8f9; box-shadow: none; }
+.drow.concl .v { font-size: var(--fs-ui); font-weight: 400; line-height: 1.6; color: var(--text-2); display: block; -webkit-line-clamp: unset; overflow: visible; margin: 0; }
+.drow.concl .m { margin-top: 0; }
+/* 서재: 손에 든 카드 (떠 있는 것은 이것 하나) */
+.doc.card-doc { max-width: 820px; padding: 20px 32px 80px; }
+.card-top { display: flex; align-items: flex-end; gap: 8px; }
+.card-top .grow { flex: 1; }
+.card-top .bar { border: 0; margin: 0; padding: 0 0 6px; flex-wrap: nowrap; }
+.st-wrap { position: relative; }
+.ctab { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px 0 12px; background: var(--panel); border: 0; border-radius: 8px 8px 0 0; font-size: var(--fs-label); font-weight: 600; color: var(--text); cursor: pointer; box-shadow: 0 -1px 2px rgba(26, 29, 33, .05); }
+.ctab .ic { width: 14px; height: 14px; margin: 0; color: var(--text-3); }
+.ctab .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-3); }
+.ctab .dot.s-noted, .ctab .dot.s-applied { background: var(--brand); }
+.ctab .dot.s-hold { background: var(--warn); }
+.st-menu { position: absolute; top: 36px; left: 0; z-index: 3; display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--panel); border: 1px solid var(--line-strong); border-radius: var(--radius-lg); box-shadow: var(--shadow-pop); white-space: nowrap; }
+.held { background: var(--panel); border-radius: 0 var(--r-card) var(--r-card) var(--r-card); box-shadow: var(--lift); }
+.held > * { padding: 0 32px; }
+.c-head { padding-top: 28px; padding-bottom: 20px; border-bottom: 1px solid var(--line); }
+.held .concl { margin: 0 0 14px; }
+.held .concl .v { font-size: 1.25rem; line-height: 1.65; }
+.held .c-none { margin: 0 0 6px; font-size: var(--fs-cap); color: var(--text-3); }
+.doc.card-doc h1.title { font-size: var(--fs-ui); font-weight: 600; line-height: 1.45; margin: 0 0 2px; letter-spacing: 0; color: var(--text); }
+.doc.card-doc h1.title.as-head { font-size: var(--fs-h2); font-weight: 400; color: var(--text-2); }
+.held .authors { font-size: var(--fs-label); color: var(--text-3); }
+.held details.src-meta { margin: 10px 0 0; }
+.c-sec { padding-top: 18px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+.c-sec .k, .held .k { font-size: var(--fs-label); font-weight: 600; color: var(--text-2); margin: 0 0 8px; }
+.c-sec .k.c-warn { color: var(--warn); }
+.c-sec .pt-md { font-size: var(--fs-ui); line-height: 1.7; }
+.c-sec .pt-md p { margin: 0 0 6px; }
+.c-two { display: grid; grid-template-columns: 1fr 1fr; padding: 0 !important; border-bottom: 1px solid var(--line); }
+.c-two .c-sec { padding: 18px 24px 18px 32px; border-bottom: 0; }
+.c-two .c-sec + .c-sec { border-left: 1px solid var(--line); padding-left: 24px; padding-right: 32px; }
+.c-foot { padding-top: 14px; padding-bottom: 16px; display: flex; flex-direction: column; gap: 10px; }
+.c-foot .meta { gap: 4px 18px; font-size: var(--fs-label); color: var(--text-2); }
+.c-foot .meta .l { color: var(--text-3); margin-right: 6px; }
+.c-foot .meta a { color: var(--brand); text-decoration-color: var(--brand-line); }
+.c-tags { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: flex-end; }
+.back-h { font-size: var(--fs-label); font-weight: 600; color: var(--text-3); margin: 40px 0 12px; }
+.cand-head { position: static; background: none; border: 0; padding: 24px 32px 0; display: block; }
+.cand-head .pageh { margin-bottom: 12px; }
+.cand-head .ix { margin-bottom: 0; }
+.cand-head .ix .btn { border: 1px solid transparent; border-bottom: 0; border-radius: 6px 6px 0 0; background: none; box-shadow: none; padding: 7px 12px 6px; margin-bottom: -1px; font-size: var(--fs-label); font-weight: 500; color: var(--text-2); }
+.cand-head .ix .btn .n { color: var(--text-3); margin-left: 6px; }
+.cand-head .ix .btn[aria-pressed="true"] { background: var(--panel); border-color: var(--line-strong); color: var(--text); font-weight: 600; }
+.cand-rule { font-size: var(--fs-cap); color: var(--text-3); padding: 8px 2px; display: flex; flex-wrap: wrap; gap: 4px 16px; justify-content: space-between; }
+.cand-rule .hint, .cand-rule .keys { margin: 0; }
+.cand-list { border-top: 1px solid var(--line-strong) !important; border-radius: var(--r-card) !important; }
+.cand .row { display: grid !important; grid-template-columns: minmax(0, 1fr) auto auto; gap: 16px; align-items: center; }
+.cand .nums { display: grid; grid-template-columns: 112px 64px 72px 84px; font-size: var(--fs-label); color: var(--text-3); text-align: right; font-variant-numeric: tabular-nums; margin: 0; }
+.cand .nums .hit { color: var(--text); font-weight: 600; }
+.cand .nums .hit::before { display: none; }
+.cand-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; padding: 0 32px 64px; align-items: start; }
+.cand-list { background: var(--panel); border: 1px solid var(--line-strong); border-top: 0; border-radius: 0 0 var(--r-card) var(--r-card); }
+.cand { border-bottom: 1px solid var(--line); padding: 10px 16px; border-left: 0; }
+/* 목록 폭이 좁으면(대화 칸 펼침·좁은 창) 숫자 칸을 제목 아래 줄로 — 숫자 332px + 판정 버튼이 제목 폭을 먹어 글자 단위로 쪼개졌다 */
+.cand-list { container-type: inline-size; }
+@container (max-width: 860px) {
+  .cand .row { grid-template-columns: minmax(0, 1fr) auto; row-gap: 4px; }
+  .cand .nums { grid-column: 1; grid-row: 2; display: flex; flex-wrap: wrap; gap: 2px 16px; text-align: left; }
+  .cand .nums span:empty { display: none; }
+  .cand .acts { grid-column: 2; grid-row: 1 / span 2; }
+}
+/* 본문 폭(대화 칸·창 폭에 따라 바뀜)이 좁으면 판정 기록을 목록 아래로 — 옆에 두면 목록이 300px 아래로 줄었다 (768 측정) */
+#main { container-type: inline-size; }
+@container (max-width: 940px) {
+  .cand-wrap { grid-template-columns: minmax(0, 1fr); }
+  .cand-side { position: static; }
+}
+.cand:last-child { border-bottom: 0; }
+.cand.sel { background: var(--panel); border-left: 0; border-radius: var(--r-card); box-shadow: var(--lift); position: relative; z-index: 1; margin: 4px -6px; padding: 12px 22px; border-bottom-color: transparent; }
+.cand button.t { font-weight: 400; color: var(--text); font-size: var(--fs-ui); }
+.cand .acts { opacity: 0; transition: opacity .1s; }
+.cand.sel .acts, .cand:hover .acts, .cand:focus-within .acts { opacity: 1; }
+.cand-side { position: sticky; top: 16px; display: grid; gap: 16px; padding-top: 0; }
+.cs-card, .cs-log { background: var(--panel); border: 1px solid var(--line-strong); border-radius: var(--r-card); padding: 14px 16px; font-size: var(--fs-label); }
+.cs-card .k, .cs-log .k { font-size: var(--fs-cap); font-weight: 600; color: var(--text-3); margin: 0 0 6px; }
+.cs-t { font-size: var(--fs-ui); line-height: 1.5; color: var(--text); }
+.cs-abs { margin-top: 8px; color: var(--text-2); line-height: 1.6; }
+.cs-log p { margin: 0 0 8px; color: var(--text-2); }
+/* 비교: 열마다 카드 한 장 (표가 같은 칸 높이를 맞춘다) */
+.cmp-head { padding: 24px 32px 0; }
+.cmp-wrap { display: flex; gap: 16px; align-items: flex-start; padding: 0 32px 64px; overflow-x: auto; }
+table.cmp { border-collapse: separate; border-spacing: 16px 0; margin-left: -16px; font-size: var(--fs-label); }
+table.cmp th.row { background: none; width: 84px; min-width: 84px; font-weight: 600; font-size: var(--fs-cap); color: var(--text-3); padding: 14px 0; vertical-align: top; position: sticky; left: 0; }
+table.cmp td, table.cmp th.c-col-h { background: var(--panel); border-left: 1px solid var(--line-strong); border-right: 1px solid var(--line-strong); border-bottom: 1px solid var(--line); min-width: 280px; max-width: 360px; padding: 14px 18px; }
+table.cmp thead th.c-col-h { border-top: 1px solid var(--line-strong); border-radius: var(--r-card) var(--r-card) 0 0; border-bottom: 1px solid var(--line); }
+table.cmp tbody tr:last-child td { border-bottom: 1px solid var(--line-strong); border-radius: 0 0 var(--r-card) var(--r-card); }
+table.cmp thead th.c-col-h .go-plain { display: block; text-align: left; color: var(--text); }
+table.cmp thead th.c-col-h .v { display: block; font-size: var(--fs-ui); font-weight: 600; line-height: 1.55; color: var(--text); }
+table.cmp thead th.c-col-h .t { display: block; margin-top: 6px; font-size: var(--fs-cap); font-weight: 400; color: var(--text-3); }
+table.cmp .bibrow .meta { display: flex; gap: 4px 12px; font-size: var(--fs-cap); }
+table.cmp .bibrow .bib-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+table.cmp .bibrow .btn { margin: -4px -8px -4px 0; }
+table.cmp tr.clip .cell { max-height: 11.5em; overflow: hidden; position: relative; }
+table.cmp tr.clip .cell::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2.4em; background: linear-gradient(transparent, var(--panel)); }
+table.cmp tr.clip.open .cell { max-height: none; }
+table.cmp tr.clip.open .cell::after { display: none; }
+table.cmp th.row .row-open { display: block; margin: 6px 0 0 -8px; font-weight: 500; }
+.c-tags.left { justify-content: flex-start; margin-top: 6px; }
+.tagchip.static { cursor: default; }
+.cmp-slot { flex: none; width: 220px; border: 1px dashed var(--line-strong); border-radius: var(--r-card); padding: 16px; color: var(--text-3); font-size: var(--fs-label); align-self: stretch; }
+.cmp-slot p { margin: 6px 0 0; }
+.drow .h { font-size: var(--fs-ui); line-height: 1.6; color: var(--text-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.drow .side { display: flex; flex-wrap: wrap; gap: 2px 12px; align-content: start; font-size: var(--fs-cap); color: var(--text-3); font-variant-numeric: tabular-nums; }
+.drow .side .t { flex-basis: 100%; color: var(--text-2); font-size: var(--fs-label); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 1180px) {
-  .shell { grid-template-columns: 280px minmax(0, 1fr); }
+  .card-top { flex-wrap: wrap; } .card-top .bar { flex-wrap: wrap; }
+  .shell { grid-template-columns: var(--lib-w) minmax(0, 1fr); }
   body:not([data-view="lib"]) .shell { grid-template-columns: minmax(0, 1fr); }
   body:not([data-view="lib"]) .lib { display: none; }
   .main { padding-right: 8px; }
   body:not([data-view="lib"]) .main { padding-left: 8px; }
-  .chat { position: fixed; right: 0; top: 0; bottom: 0; width: min(420px, 100%); z-index: 7; border-left: 1px solid var(--line); box-shadow: -8px 0 24px rgba(26, 29, 33, .12); transform: translateX(100%); visibility: hidden; transition: transform .2s, visibility 0s .2s; }
+  .chat { position: fixed; right: 0; top: 0; bottom: 0; width: min(420px, 100%); z-index: 7; border-left: 1px solid var(--line-strong); box-shadow: -8px 0 24px rgba(26, 29, 33, .12); transform: translateX(100%); visibility: hidden; transition: transform .2s, visibility 0s .2s; }
   body.chat-open .chat { transform: none; visibility: visible; transition: transform .2s; }
   .doc { padding: 28px 32px 64px; }
 }
@@ -489,11 +667,25 @@ ul.cites .inf { color: #b8860b; }
   .tab, .top .btn { width: auto; min-width: 48px; min-height: 48px; padding: 4px 8px; }
   .shell, body:not([data-view="lib"]) .shell { grid-template-columns: minmax(0, 1fr); }
   .lib, body:not([data-view="lib"]) .lib { display: none; } body.show-lib .lib { display: flex; } body.show-lib .main { display: none; }
+  .lib-resize { display: none; }   /* 좁은 화면은 목록이 한 칸 전체 — 폭 조절 없음 */
   .main, body:not([data-view="lib"]) .main { padding: 0; } .main > .scroll { border-radius: 0; box-shadow: none; }
   .doc, .loading { padding: 20px 16px 48px; } .cand { padding: 12px 16px 12px 13px; } .cand .row { flex-direction: column; gap: 8px; }
   .cand-head, .pub-head, .cmp-head { padding-left: 16px; padding-right: 16px; } .pub-body, .cmp-wrap { padding-left: 16px; padding-right: 16px; }
   .facts .go-manage { margin-left: 0; }
   .doc h1.title { font-size: var(--fs-h2); }
+  .tab .n { left: auto; right: 0; top: 2px; }
+  .doc.card-doc { padding: 12px 10px 48px; }
+  .held > * { padding-left: 18px; padding-right: 18px; }
+  .held .concl .v { font-size: var(--fs-body); }
+  .c-two { grid-template-columns: minmax(0, 1fr); }
+  .c-two .c-sec, .c-two .c-sec + .c-sec { padding: 16px 18px; border-left: 0; }
+  .c-two .c-sec + .c-sec { border-top: 1px solid var(--line); }
+  .desk, .cand-head, .cmp-head { padding-left: 16px; padding-right: 16px; }
+  .piles { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .drow { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .cand-wrap { grid-template-columns: minmax(0, 1fr); padding: 0 16px 48px; }
+  .cand-side { position: static; padding-top: 0; }
+  .cmp-wrap { padding: 0 16px 48px; }
 }
 </style>
 </head>
@@ -525,6 +717,11 @@ ul.cites .inf { color: #b8860b; }
   <symbol id="i-flask" viewBox="0 0 24 24"><path d="M9 3h6M10 3v6L4.5 18.5A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.5-2.5L14 9V3"/><path d="M7 15h10"/></symbol>
   <symbol id="i-cite" viewBox="0 0 24 24"><path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/></symbol>
   <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.4 2.6a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z"/></symbol>
+  <symbol id="i-desk" viewBox="0 0 24 24"><path d="M3 10h18"/><path d="M5 10v9"/><path d="M19 10v9"/><path d="M8 6h8v4H8z"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/></symbol>
+  <symbol id="i-panel" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
   <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
   <symbol id="i-highlight" viewBox="0 0 24 24"><path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></symbol>
   <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
@@ -537,8 +734,9 @@ ul.cites .inf { color: #b8860b; }
   <span class="brand" title="paper_analyst"><svg class="ic" aria-hidden="true"><use href="#i-book"/></svg><span class="sr">paper_analyst</span></span>
   <div class="pop" id="profile-pop" role="dialog" aria-label="프로필 설명" hidden></div>
   <nav class="tabs" role="tablist" aria-orientation="vertical">
-    <button class="tab" role="tab" id="tab-lib" aria-selected="true"><svg class="ic" aria-hidden="true"><use href="#i-library"/></svg>서재</button>
+    <button class="tab" role="tab" id="tab-home" aria-selected="false"><svg class="ic" aria-hidden="true"><use href="#i-desk"/></svg>책상</button>
     <button class="tab" role="tab" id="tab-cand" aria-selected="false"><svg class="ic" aria-hidden="true"><use href="#i-inbox"/></svg>후보함<span class="n" id="cand-n"></span></button>
+    <button class="tab" role="tab" id="tab-lib" aria-selected="true"><svg class="ic" aria-hidden="true"><use href="#i-library"/></svg>서재</button>
     <button class="tab" role="tab" id="tab-cmp" aria-selected="false"><svg class="ic" aria-hidden="true"><use href="#i-columns"/></svg>비교<span class="n" id="cmp-n"></span></button>
     <button class="tab" role="tab" id="tab-pub" aria-selected="false"><svg class="ic" aria-hidden="true"><use href="#i-send"/></svg>발행<span class="n" id="pub-n"></span></button>
   </nav>
@@ -558,14 +756,18 @@ ul.cites .inf { color: #b8860b; }
       <div class="filters" id="tagfilters"></div>
     </div>
     <div class="scroll" id="lib-list"></div>
+    <div class="lib-resize" id="lib-resize" role="separator" aria-orientation="vertical" aria-label="서재 목록 폭" aria-valuemin="240" tabindex="0"
+      title="끌어서 목록 폭 조정 · ←/→ 키 · 두 번 누르면 기본 폭"></div>
   </aside>
 
   <main class="col main"><div class="scroll" id="main"></div></main>
 
+  <aside class="chat-strip" id="chat-strip" aria-label="대화 (접힘)"><button class="btn quiet" id="chat-open" title="대화 칸 펼치기"><svg class="ic" aria-hidden="true"><use href="#i-chat"/></svg>대화</button><span class="dot" id="chat-dot" hidden></span></aside>
   <section class="col chat" aria-label="대화">
     <div class="chat-head">
       <select id="chat-sel" aria-label="대화 고르기"></select>
       <button class="btn" id="new-chat" aria-haspopup="menu">새 대화</button>
+      <button class="btn quiet" id="chat-close" title="대화 칸 접기" aria-label="대화 칸 접기"><svg class="ic" aria-hidden="true"><use href="#i-panel"/></svg></button>
     </div>
     <div class="sess" id="sess"></div>
     <div class="scroll" id="msgs-wrap"><div class="msgs" id="msgs"></div></div>
@@ -602,6 +804,7 @@ function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add
 const fmtDate = s => (s || '').slice(0, 10);
 const ic = n => `<svg class="ic" aria-hidden="true"><use href="#i-${n}"/></svg>`;   // 선 아이콘 (스프라이트는 body 맨 앞)
 // 결론의 첫 문장만 굵게 — 문단 전체를 강조하면 아무것도 강조되지 않는다 (v1 실패, craft §2-9)
+const firstSentence = t => { const m = String(t || '').match(/^(.+?[.!?。](?:["”’'])?)(\s|$)/); return m ? m[1] : String(t || ''); };
 const hlFirst = t => { const m = String(t || '').match(/^(.+?[.!?。](?:["”’'])?)(\s+)([\s\S]+)$/); return m ? `<span class="hl">${esc(m[1])}</span>${m[2]}${esc(m[3])}` : `<span class="hl">${esc(t)}</span>`; };
 const ST_IC = { noted: 'noted', applied: 'applied', fetched: 'fetched', to_read: 'to_read', hold: 'hold' };
 const fmtWhen = d => `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
@@ -619,6 +822,40 @@ const SORTS = {   // 서재 목록 정렬 — 고른 기준은 브라우저에 �
   published: (a, b) => (b.published || '').localeCompare(a.published || '') || b.id.localeCompare(a.id),
   title: (a, b) => (a.title || '').localeCompare(b.title || '', 'en', { sensitivity: 'base' }),
 };
+/* 서재 목록 폭 — 사용자가 끌어서 정하고 기억한다 (기본 304px, 240 ~ 창 폭 40%·560px) */
+const LIB_W = { min: 240, def: 304 };
+const libMax = () => Math.max(LIB_W.min, Math.min(560, Math.round(innerWidth * 0.4)));
+function setLibW(w, save) {
+  w = Math.round(Math.min(libMax(), Math.max(LIB_W.min, w)));
+  document.documentElement.style.setProperty('--lib-w', w + 'px');
+  const h = $('#lib-resize'); h.setAttribute('aria-valuenow', w); h.setAttribute('aria-valuemax', libMax());
+  if (save) try { localStorage.setItem('pa.libW', String(w)); } catch { /* 이번 화면만 */ }
+  return w;
+}
+const libW = () => parseInt($('#lib-resize').getAttribute('aria-valuenow'), 10) || LIB_W.def;   // 서재 칸이 숨어 있어도 현재 값
+function initLibResize() {
+  const h = $('#lib-resize'); let saved = NaN;
+  try { saved = parseInt(localStorage.getItem('pa.libW'), 10); } catch { /* 기본 폭 */ }
+  setLibW(Number.isFinite(saved) ? saved : LIB_W.def, false);
+  h.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return;
+    e.preventDefault(); h.setPointerCapture(e.pointerId);
+    const x0 = e.clientX, w0 = libW();
+    document.body.classList.add('resizing');
+    const move = ev => setLibW(w0 + ev.clientX - x0, false);
+    const up = ev => { h.removeEventListener('pointermove', move); h.removeEventListener('pointerup', up); h.removeEventListener('pointercancel', up);
+      document.body.classList.remove('resizing'); setLibW(w0 + ev.clientX - x0, true); };
+    h.addEventListener('pointermove', move); h.addEventListener('pointerup', up); h.addEventListener('pointercancel', up);
+  });
+  h.addEventListener('dblclick', () => { setLibW(LIB_W.def, false); try { localStorage.removeItem('pa.libW'); } catch { /* 없음 */ } });
+  h.addEventListener('keydown', e => {
+    const cur = libW(), step = e.shiftKey ? 48 : 16;
+    const to = { ArrowLeft: cur - step, ArrowRight: cur + step, Home: LIB_W.min, End: libMax() }[e.key];
+    if (to === undefined) return;
+    e.preventDefault(); e.stopPropagation(); setLibW(to, true);
+  });
+  addEventListener('resize', () => { let want = LIB_W.def; try { want = parseInt(localStorage.getItem('pa.libW'), 10) || LIB_W.def; } catch { /* 기본 폭 */ } setLibW(want, false); });
+}
 try { S.sort = SORTS[localStorage.getItem('pa.libSort')] ? localStorage.getItem('pa.libSort') : 'noted'; } catch { S.sort = 'noted'; }
 function loadCmp() { try { return JSON.parse(localStorage.getItem('pa.cmp') || '[]'); } catch { return []; } }
 function saveCmp() { try { localStorage.setItem('pa.cmp', JSON.stringify(S.cmp)); } catch { /* 저장 안 돼도 이번 화면에선 동작 */ } renderCmpTab(); }
@@ -633,7 +870,7 @@ function renderCmpTab() {
 function focusKey(e) {
   if (!e || e === document.body) return null;
   if (e.id) return '#' + CSS.escape(e.id);
-  for (const k of ['key', 'f', 'tagf', 'paper', 'post', 'cv', 'ptab', 'abs', 'todo']) if (e.dataset && e.dataset[k] !== undefined) return `[data-${k}="${CSS.escape(e.dataset[k])}"]`;
+  for (const k of ['key', 'f', 'tagf', 'paper', 'post', 'cv', 'ptab', 'abs', 'todo', 'desktab', 'dec', 'cmprow']) if (e.dataset && e.dataset[k] !== undefined) return `[data-${k}="${CSS.escape(e.dataset[k])}"]`;
   return null;
 }
 function keepFocus(fn) {
@@ -696,9 +933,10 @@ function renderLib() {
     for (const p of ps) {
       const cur = S.sel && S.sel.kind === 'paper' && S.sel.id === p.id;
       out.push(`<button class="item" data-key="p:${esc(p.id)}" data-paper="${esc(p.id)}" aria-current="${cur}" title="${esc(names[st])}">
-        <span class="t">${esc(p.title)}${S.fresh.has(p.id) ? '<span class="new">새로 정리됨</span>' : ''}</span>
-        ${p.conclusion ? `<span class="c">${esc(p.conclusion)}</span>` : ''}
-        <span class="m"><span>${esc(p.id)}${p.has_private ? '<span class="lock">개인 메모</span>' : ''}</span>${p.published ? `<span>${esc(fmtDate(p.published))}</span>` : ''}</span></button>`);
+        ${p.conclusion ? `<span class="t mine">${esc(firstSentence(p.conclusion))}${S.fresh.has(p.id) ? '<span class="new">새로 정리됨</span>' : ''}</span>
+        <span class="m"><span class="mt">${esc(p.title)}</span>${cur ? '<span class="out">펼침</span>' : `<span>${esc(fmtDate(p.published))}</span>`}</span>`
+        : `<span class="t">${esc(p.title)}</span>
+        <span class="m"><span class="mt">${esc(p.id)}${p.has_private ? '<span class="lock">개인 메모</span>' : ''}</span>${cur ? '<span class="out">펼침</span>' : `<span>${esc(fmtDate(p.published))}</span>`}</span>`}</button>`);
     }
   }
   if (S.filter === 'all' && !S.tag) {
@@ -784,39 +1022,63 @@ async function showPaper(id, quiet = false) {
   const cnts = [['link', '연결', p.links.length], ['out', '쓰인 곳', nUsed], ...(p.can_memo ? [['flask', '적용 기록', (p.applied || []).length]] : [])].filter(x => x[2]);
   // 바깥 평가: 외부 평가 조회 때 인용 수 (Semantic Scholar) — 시안 B에서 가져온 줄
   if (p.fresh && p.fresh.citations != null) cnts.push(['cite', '인용', fmtN(p.fresh.citations), `외부 평가 조회 ${p.fresh.ext_at || ''} 기준 (Semantic Scholar)`]);
-  const facts = p.has_notes ? `<div class="facts">
-      ${p.tags.length ? `<span class="tagchips">${p.tags.map(t => `<button class="tagchip" data-tagf="${esc(t)}" title="서재를 이 태그로 거르기">${esc(t)}</button>`).join('')}</span>` : ''}
-      ${cnts.map(([i, l, n, t]) => `<span class="cnt"${t ? ` title="${esc(t)}"` : ''}>${l} <b>${n}</b></span>`).join('')}
-      <button class="btn quiet sm go-manage" data-jump="manage">태그·연결 관리</button></div>` : '';
-  $('#main').innerHTML = `<article class="doc">
-    <div class="meta">${p.category ? `<span class="cat">${esc(p.category)}</span>` : ''}${p.published ? `<span>발표 ${esc(fmtDate(p.published))}</span>` : ''}<a href="${esc(p.abs_url)}" target="_blank" rel="noopener">arXiv ${esc(p.id)}</a><a href="https://arxiv.org/pdf/${esc(p.id)}" target="_blank" rel="noopener">PDF 원문</a></div>
-    <h1 class="title" tabindex="-1">${esc(p.title)}</h1>
-    ${authors ? `<div class="authors">${authors}</div>` : ''}
-    <div class="bar">
-      ${stBtns}<span class="grow"></span>
+  // 카드 바닥 줄: 서지 사실은 한 자리에 — 라벨 + 값 (수치는 누를 수 없는 카운터, 태그는 누르는 칩)
+  const bib = [p.published ? ['발표', esc(fmtDate(p.published))] : null,
+    ['arXiv', `<a href="${esc(p.abs_url)}" target="_blank" rel="noopener">${esc(p.id)}</a>`],
+    ['원문', `<a href="https://arxiv.org/pdf/${esc(p.id)}" target="_blank" rel="noopener">PDF 원문</a>`],
+    p.category ? ['분야', esc(p.category)] : null,
+    ...cnts.map(([, l, n, t]) => [l, `<b class="num"${t ? ` title="${esc(t)}"` : ''}>${n}</b>`])].filter(Boolean);
+  // 카드 앞면 칸: 가져갈 것 → 믿어도 되는 결과 / 해석에 주의할 결과 두 칸 → 그 밖 (notes 결론 절의 라벨 항목)
+  const PL = (re) => (p.parts || []).filter(x => re.test(x.label));
+  const take = PL(/^가져갈/), trust = PL(/^믿어도/), warn = PL(/^(해석에 )?주의/), rest = (p.parts || []).filter(x => !/^(가져갈|믿어도|(해석에 )?주의)/.test(x.label));
+  const part = (xs, cls) => xs.map(x => `<div class="pt-md md" data-aid="${esc(p.id)}">${x.html}</div>`).join('');
+  const curName = manual ? (manual === 'applied' ? '적용함' : '보류') : names[auto];
+  $('#main').innerHTML = `<article class="doc card-doc">
+    <div class="card-top">
+      <div class="st-wrap"><button class="ctab" id="st-tab" aria-haspopup="true" aria-expanded="false" aria-controls="st-menu" title="이 카드의 상태 바꾸기"><span class="dot s-${esc(manual || auto)}"></span>${esc(curName)}<svg class="ic" aria-hidden="true"><use href="#i-chev"/></svg></button>
+        <div class="st-menu" id="st-menu" hidden><span class="lbl" id="st-lbl">상태</span><span class="seg" role="group" aria-labelledby="st-lbl">${[['', names[auto]], ['applied', '적용함'], ['hold', '보류']].map(([k, n]) =>
+          `<button class="btn" data-st="${k}" aria-pressed="${(manual || '') === k}">${esc(n)}</button>`).join('')}</span></div></div>
+      <span class="grow"></span>
+      <div class="bar">
       ${p.has_notes ? `<button class="btn" data-cmp="${esc(p.id)}" aria-pressed="${inCmp}">${inCmp ? ic('check') + '비교에 담김' : ic('compare') + '비교에 담기'}</button>
         <button class="btn" data-ask="이 논문으로 paper-post 글 초안 만들어줘 (LinkedIn·블로그)">${ic('pen')}글 초안</button>
         <button class="btn" id="edit-notes" aria-controls="notes-editor" aria-expanded="false" title="notes.md 를 직접 고칩니다">${ic('edit')}편집</button>` : ''}
-      ${ask}
+      ${ask}</div>
     </div>
     <div class="inline-confirm" id="reread-box" role="group" aria-label="다시 정리 확인" hidden>
       <p>기존 정리(notes)를 Claude가 다시 확인하고, 빠진 외부 평가가 있으면 보강합니다. 내용이 고쳐질 수 있고,
       Claude 세션이 보통 몇 분 돌며 사용량이 나갑니다.</p>
       <div class="row"><button class="btn primary" data-ask="${REREAD_ASK}" id="reread-go">시작</button>
       <button class="btn quiet" id="reread-cancel">취소</button></div></div>
-    ${p.conclusion ? `<section class="concl" aria-label="결론"><span class="k">결론</span><p class="v">${hlFirst(p.conclusion)}</p></section>` : ''}
-    ${triedLine(p.applied)}
-    ${facts}
-    ${p.notes_html ? `<div class="md" id="notes">${p.notes_html}</div>`
-      : `<div class="empty" style="padding:8px 0"><h2>아직 정리되지 않았습니다</h2>
-         ${p.abstract ? `<p><b>초록</b><br><span class="abstract">${esc(p.abstract)}</span></p>` : ''}
-         <p><b>Claude에게 정리 시키기</b>를 누르면 대화창으로 요청이 가고, 정리가 끝나면 이 자리에 notes가 나타납니다.</p></div>`}
+    <div class="held">
+      <div class="c-head">
+        ${p.conclusion ? `<section class="concl" aria-label="결론"><p class="v">${hlFirst(p.conclusion)}</p></section>` : '<p class="c-none">아직 내 결론 없음</p>'}
+        <h1 class="title${p.conclusion ? '' : ' as-head'}" tabindex="-1">${esc(p.title)}</h1>
+        ${authors ? `<div class="authors">${authors}</div>` : ''}
+        ${triedLine(p.applied)}
+      </div>
+      ${take.length ? `<section class="c-sec"><h2 class="k">가져갈 것</h2>${part(take)}</section>` : ''}
+      ${trust.length || warn.length ? `<div class="c-two"><section class="c-sec"><h2 class="k">믿어도 되는 결과</h2>${part(trust) || '<p class="hint">notes에 없음</p>'}</section>
+        <section class="c-sec c-caution"><h2 class="k c-warn">해석에 주의할 결과</h2>${part(warn) || '<p class="hint">notes에 없음</p>'}</section></div>` : ''}
+      ${rest.length ? `<section class="c-sec">${rest.map(x => `<h2 class="k">${esc(x.label)}</h2><div class="pt-md md" data-aid="${esc(p.id)}">${x.html}</div>`).join('')}</section>` : ''}
+      ${!p.has_notes ? `<section class="c-sec"><p>${p.abstract ? `<b>초록</b><br><span class="abstract">${esc(p.abstract)}</span>` : ''}</p>
+         <p class="hint"><b>Claude에게 정리 시키기</b>를 누르면 대화 칸으로 요청이 가고, 정리가 끝나면 이 카드에 결론이 섭니다.</p></section>` : ''}
+      <footer class="c-foot"><div class="meta">${bib.map(([l, v]) => `<span><span class="l">${l}</span>${v}</span>`).join('')}</div>
+        <div class="c-tags">${p.tags.map(t => `<button class="tagchip" data-tagf="${esc(t)}" title="서재를 이 태그로 거르기">${esc(t)}</button>`).join('')}
+          ${p.has_notes ? `<button class="btn quiet sm go-manage" data-jump="manage">${ic('plus')}태그·연결</button>` : ''}</div></footer>
+    </div>
+    ${p.notes_html ? `<h2 class="back-h">카드 뒷면 — 노트 전문</h2><div class="md" id="notes">${p.notes_html}</div>` : ''}
     ${p.private_html ? `<details class="private"><summary>개인 메모 (비공개 — notes.private.md, git 제외)</summary><div class="md">${p.private_html}</div></details>` : ''}
     <section class="manage" id="manage" tabindex="-1" aria-labelledby="manage-h"><h2 id="manage-h">이 논문 관리</h2>${paperExtras(p)}</section>
   </article>`;
+  for (const md of document.querySelectorAll('#main .pt-md')) linkRefs(md, p.id, refOwner);
   dedupe($('#notes'), p);
   for (const c of document.querySelectorAll('#notes :not(pre) > code')) if (c.textContent.length > 40 && /[가-힣]/.test(c.textContent)) c.classList.add('flow');
-  const sm = $('#notes > details.src-meta'); if (sm) $('#main article .concl')?.after(sm);   // 읽은 범위·정리 시각은 결론 바로 아래 (믿을 근거)
+  const sm = $('#notes > details.src-meta'); if (sm) $('#main .c-head')?.append(sm);   // 읽은 범위·정리 시각은 카드 머리 끝 (믿을 근거)
+  if ((p.parts || []).length) {   // 결론 절의 항목은 카드 앞면에 있으니 뒷면(노트 전문)에서는 뺀다
+    const h = [...document.querySelectorAll('#notes > h2')].find(x => /^(결론|한 줄 요약)/.test(x.textContent.trim()));
+    if (h) { let n = h.nextElementSibling; while (n && n.tagName !== 'H2') { const x = n.nextElementSibling; n.remove(); n = x; } h.remove(); }
+  }
   const hs = [...document.querySelectorAll('#notes > h2')];
   if (hs.length >= 3) {
     hs.forEach((h, i) => { h.id = `sec-${i}`; h.tabIndex = -1; });
@@ -961,18 +1223,16 @@ async function renderCompare() {
       : '<span class="empty-cell">—</span>';
   };
   const extra = rows.some(r => r.parts.some(x => !LABELS.some(l => x.label.startsWith(l))));
-  $('#main').innerHTML = `<div class="cmp-head"><h1 class="h2" style="margin:0">결론 비교 <span class="meta">${rows.length}편</span></h1>
-      <p class="meta" style="margin:4px 0 0">각 논문 notes 의 결론 블록을 항목별로 나란히 놓았습니다. 논문 화면의 <b>비교에 담기</b>로 더 넣을 수 있습니다.</p></div>
-    <div class="cmp-wrap"><table class="cmp"><thead><tr><th class="row"></th>${rows.map(r => `<th>
-        <button class="go go-plain" data-paper="${esc(r.id)}"><span class="t">${esc(r.title)}</span></button>
-        <span class="meta">${esc(r.id)}${r.published ? ' · ' + esc(fmtDate(r.published)) : ''}</span>
-        ${r.tags.length ? `<div class="hint">${r.tags.map(esc).join(' · ')}</div>` : ''}
-        <button class="btn quiet sm" data-uncmp="${esc(r.id)}" style="margin:4px 0 0 -10px">비교에서 빼기</button></th>`).join('')}</tr></thead>
-      <tbody><tr><th class="row">판정</th>${rows.map(r => `<td class="verdict">${r.verdict ? hlFirst(r.verdict) : '<span class="empty-cell">—</span>'}</td>`).join('')}</tr>
-      ${LABELS.map(lab => `<tr><th class="row">${lab}</th>${rows.map(r => `<td data-aid="${esc(r.id)}">${cell(r, lab)}</td>`).join('')}</tr>`).join('')}
+  $('#main').innerHTML = `<div class="cmp-head"><div class="pageh"><h1>비교</h1><span class="sub">책상에 나란히 놓은 카드 ${rows.length}장 — 같은 칸끼리 같은 높이</span></div></div>
+    <div class="cmp-wrap"><table class="cmp"><thead><tr><th class="row"></th>${rows.map(r => `<th class="c-col-h">
+        <button class="go go-plain" data-paper="${esc(r.id)}" title="서재에서 이 카드 펼치기">${r.verdict ? `<span class="v">${esc(firstSentence(r.verdict))}</span>` : ''}<span class="t">${esc(r.title)}</span></button></th>`).join('')}</tr></thead>
+      <tbody><tr class="bibrow"><th class="row">서지</th>${rows.map(r => `<td><div class="bib-top"><span class="meta">${esc(r.id)}${r.published ? `<span>발표 ${esc(fmtDate(r.published))}</span>` : ''}</span>
+        <button class="btn quiet sm" data-uncmp="${esc(r.id)}" title="비교에서 빼기" aria-label="비교에서 빼기">${ic('x')}빼기</button></div>
+        ${r.tags.length ? `<div class="c-tags left">${r.tags.map(t => `<span class="tagchip static">${esc(t)}</span>`).join('')}</div>` : ''}</td>`).join('')}</tr>
+      ${LABELS.map((lab, i) => `<tr class="clip${S.cmpOpen && S.cmpOpen.has(lab) ? ' open' : ''}"><th class="row">${lab}<button class="btn quiet sm row-open" data-cmprow="${esc(lab)}" aria-expanded="${!!(S.cmpOpen && S.cmpOpen.has(lab))}">${S.cmpOpen && S.cmpOpen.has(lab) ? '접기' : '펼치기'}</button></th>${rows.map(r => `<td data-aid="${esc(r.id)}"><div class="cell">${cell(r, lab)}</div></td>`).join('')}</tr>`).join('')}
       ${rows.some(r => (r.applied || []).length) ? `<tr><th class="row">써 보니</th>${rows.map(r => `<td>${(r.applied || []).map(x => `<div>${resBadge(x.result)} ${esc(x.where)} <span class="hint">${esc(x.date)}</span>${x.note ? `<div>${esc(x.note)}</div>` : ''}</div>`).join('') || '<span class="empty-cell">—</span>'}</td>`).join('')}</tr>` : ''}
       ${extra ? `<tr><th class="row">그 밖</th>${rows.map(r => `<td data-aid="${esc(r.id)}">${cell(r, null)}</td>`).join('')}</tr>` : ''}
-      </tbody></table></div>`;
+      </tbody></table>${rows.length < 4 ? `<div class="cmp-slot" aria-label="빈 자리"><b>빈 자리</b><p>서재에서 카드를 열고 <b>비교에 담기</b>로 놓습니다.</p></div>` : ''}</div>`;
   for (const td of document.querySelectorAll('.cmp td[data-aid]')) linkRefs(td, td.dataset.aid, refOwner);
 }
 /* ── 발행 ─────────────────────────────────── */
@@ -1009,8 +1269,7 @@ function renderPub() {
     ${done.length ? `<details class="pub-group" id="pub-done"${doneOpen ? ' open' : ''}><summary class="gh">게시한 글 ${done.length}</summary>
       <div class="pub-rows">${done.map(row).join('')}</div></details>` : ''}
   </div>` : '';
-  const head = `<div class="pub-head"><h1 class="h2" style="margin:0">발행</h1>
-    <p class="meta" style="margin:4px 0 0">논문을 열고 <b>글 초안</b>를 누르면 Claude 가 초안을 씁니다. 확인한 뒤 <b>LinkedIn 에 게시</b>하거나 복사해서 올립니다.</p>
+  const head = `<div class="pub-head"><div class="pageh"><h1>발행</h1><span class="sub">카드의 마지막 자리 — 서재에서 카드를 열고 ‘글 초안’을 누르면 Claude 가 씁니다. 확인한 뒤 게시하거나 복사합니다</span></div>
     ${groups}</div>`;
   const d = S.postData;
   if (!d) { $('#main').innerHTML = `<div class="pub-wrap">${head}<div class="empty"><h2>아직 초안이 없습니다</h2><p>예: 서재에서 논문을 열고 <b>글 초안</b>, 또는 대화창에 <span class="ex">이 두 논문 엮어서 링크드인 글 써줘</span></p></div></div>`; return; }
@@ -1028,7 +1287,7 @@ function renderPub() {
   if (S.ptab === 'linkedin') {
     const txt = v.plain, fold = txt.indexOf('\n') > -1 ? Math.min(txt.indexOf('\n'), 210) : 210;
     body = `<div class="preview-plain">${esc(txt.slice(0, fold))}<div class="fold">— 여기까지 ‘더 보기’ 전에 보임 (어림값) —</div>${esc(txt.slice(fold).replace(/^\n+/, ''))}</div>`;
-    copy = `<button class="btn primary" data-copy="linkedin">글자 복사</button>`;
+    copy = `<button class="btn line" data-copy="linkedin">글자 복사</button>`;   // 채움은 게시 하나
     body = linkedinBar(d, warn.length) + body;
   } else if (S.ptab === 'blog') {
     body = `<div class="md doc" style="padding:0">${v.html}</div>`;
@@ -1192,7 +1451,7 @@ function dedupe(md, p) {   // 위에 이미 보인 제목·결론 문장은 note
   }
 }
 async function showDoc(kind, name) {
-  S.sel = { kind: 'doc', name }; keepFocus(() => renderLib()); renderAttach(); document.body.classList.remove('show-lib');
+  S.sel = { kind: 'doc', dkind: kind, name }; keepFocus(() => renderLib()); renderAttach(); document.body.classList.remove('show-lib');
   try {
     const d = await api(`/api/docs/${kind}/${encodeURIComponent(name)}`);
     $('#main').innerHTML = `<article class="doc"><div class="meta">${kind === 'lists' ? '목록' : '아이디어'} · ${esc(name)}</div>
@@ -1201,27 +1460,69 @@ async function showDoc(kind, name) {
     for (const md of document.querySelectorAll('#main .md')) linkRefs(md, null, refOwner);
   } catch (e) { $('#main').innerHTML = `<div class="empty"><h2>문서를 열지 못했습니다</h2><p>${esc(e.message)}</p></div>`; }
 }
-function welcome() {
-  S.sel = null; keepFocus(() => renderLib()); renderAttach();
+function welcome() {   // 책상 — 할 일마다 맨 위 한 장 + 최근 정리한 결론 (서랍 행)
+  keepFocus(() => renderLib()); renderAttach();
   const noted = S.lib.papers.filter(p => p.conclusion).sort((a, b) => b.noted_at - a.noted_at);
-  $('#main').innerHTML = `<div class="doc">
-    <div class="todo" id="todo" aria-label="할 일"></div>
-    <h1 class="h2">최근 정리된 결론</h1>
-    <div class="cards">${noted.slice(0, 10).map(p => `<button class="concl card" data-paper="${esc(p.id)}"><span class="k">${esc(p.title)}</span><span class="v">${hlFirst(p.conclusion)}</span>
-        <span class="m"><span>${esc(p.id)}</span>${p.published ? `<span>발표 ${esc(fmtDate(p.published))}</span>` : ''}${(p.tags || []).length ? `<span>${esc(p.tags.join(', '))}</span>` : ''}</span></button>`).join('')
-      || `<div class="empty" style="padding:24px 0;margin:0"><p>아직 정리된 논문이 없습니다. 오른쪽 대화창에서 <span class="ex">2603.28052 정리해줘</span>처럼 시키면 결론이 여기에 쌓입니다.</p></div>`}</div></div>`;
+  const docs = S.lib.docs || [];
+  const now = new Date(), wd = '일월화수목금토'[now.getDay()];
+  S.deskTab = S.deskTab || 'concl';
+  const rows = S.deskTab === 'docs'
+    ? docs.map(d => `<button class="drow" data-doc="${esc(d.kind)}/${esc(d.name)}"><span class="h">${esc(d.title)}</span>
+        <span class="side"><span class="t">${d.kind === 'lists' ? '목록' : '아이디어'}</span><span>${esc(d.name.replace('.private', ''))}</span></span></button>`).join('')
+    : noted.slice(0, 12).map(p => `<button class="drow concl card" data-paper="${esc(p.id)}"><span class="h v">${hlFirst(p.conclusion)}</span>
+        <span class="side m"><span class="t">${esc(p.title)}</span><span>정리 ${esc(day(p.noted_at))}</span><span>${esc(p.id)}</span></span></button>`).join('');
+  $('#main').innerHTML = `<div class="desk">
+    <div class="pageh"><h1>책상</h1><span class="sub">${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${wd}요일 · 서재 ${S.lib.papers.length}편 중 정리됨 ${noted.length}편</span></div>
+    <div class="piles" id="todo" aria-label="할 일"></div>
+    <div class="ix" role="tablist" aria-label="책상 아래 서랍">
+      <button role="tab" data-desktab="concl" aria-selected="${S.deskTab === 'concl'}">최근 정리한 결론<span class="n">${noted.length}</span></button>
+      <button role="tab" data-desktab="docs" aria-selected="${S.deskTab === 'docs'}">내 목록·아이디어 글<span class="n">${docs.length}</span></button>
+      <span class="aside">${S.deskTab === 'docs' ? '' : '정리한 날 순'}</span></div>
+    <div class="drawer">${rows || `<div class="empty" style="padding:24px 16px;margin:0"><p>${S.deskTab === 'docs' ? '아직 목록·아이디어 글이 없습니다.' : '아직 정리된 논문이 없습니다. 대화 칸에서 <span class="ex">2603.28052 정리해줘</span>처럼 시키면 결론이 여기에 쌓입니다.'}</p></div>`}</div>
+  </div>`;
   renderTodo();
 }
-function renderTodo() {   // 홈의 할 일: 읽을 것 · 정리 전 · 판정할 후보 · 게시 전 초안 — 누르면 그 자리로. 후보·초안 수는 늦게 오면 다시 그린다
+S.peek = {};   // 책상의 초안 카드용: 첫 초안의 분량·점검·첫 문단 (한 번만 불러옴)
+function draftPeek(x) {
+  const d = S.peek[x.slug];
+  if (d === undefined) { S.peek[x.slug] = null; api(`/api/posts/${encodeURIComponent(x.slug)}`).then(r => { S.peek[x.slug] = r; renderTodo(); }).catch(() => {}); }
+  const li = d && d.linkedin; if (!li) return `<div class="sig"><span>${esc(x.created || '')}</span></div>`;
+  return `<div class="sig"><span>LinkedIn</span><span class="num">${fmtN(li.check.chars)} / ${fmtN(li.check.limit)}자</span><span>${esc(x.created || '')}</span></div>
+    <p class="excerpt">${esc(li.plain.split('\n')[0].slice(0, 120))}</p>`;
+}
+function draftOk(x) {
+  const c = S.peek[x.slug] && S.peek[x.slug].linkedin && S.peek[x.slug].linkedin.check; if (!c) return '';
+  const bad = (c.private_hits || []).length + (c.trace_hits || []).length + (c.over_limit ? 1 : 0);
+  return bad ? `<span class="chk bad">점검 ${bad}건</span>` : `<span class="chk">${ic('check')}점검 통과</span>`;
+}
+const day = ts => { if (!ts) return ''; const d = new Date(ts * 1000); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+function renderTodo() {   // 할 일 더미 셋: 판정할 후보 · 정리 전 · 게시 전 초안 — 맨 위 한 장이 실물, 그 자리에서 다음 동작
   const box = $('#todo'); if (!box || !S.lib) return;
-  const c = S.lib.counts, nCand = S.cand ? S.cand.counts.signal : null;
-  const todo = [
-    c.to_read ? ['to_read', c.to_read, '편 읽을 것'] : null,
-    ['fetched', c.fetched || 0, '편 정리 전'],
-    nCand !== null ? ['cand', nCand, '건 판정할 후보'] : null,
-    ['pub', S.posts.filter(x => !isDone(x)).length, '개 게시 전 초안'],
-  ].filter(Boolean);
-  keepFocus(() => { box.innerHTML = todo.map(([k, n, l]) => `<button data-todo="${k}" class="${n ? '' : 'zero'}"><b>${fmtN(n)}</b>${l}</button>`).join(''); });
+  const c = S.lib.counts;
+  const cands = S.cand && S.candView !== 'decided' ? S.cand.items : null, top = cands && cands[0];
+  const fetched = S.lib.papers.filter(p => p.status === 'fetched' || p.status === 'to_read').sort((a, b) => (b.published || '').localeCompare(a.published || ''));
+  const drafts = S.posts.filter(x => !isDone(x));
+  const sig = x => [['stars', x.stars, 'GitHub ★'], ['hn', x.hn, 'HN'], ['cit', x.cit, '인용']].filter(([, v]) => v)
+    .map(([k, v, l]) => `<span class="${x.signals.includes(k) ? 'hit' : ''}">${l} ${fmtN(v)}</span>`).join('') + (x.upvotes ? `<span>HF 추천 ${fmtN(x.upvotes)}</span>` : '');
+  const pile = (key, label, n, open, body, foot, more) => `<section class="pile${n ? '' : ' zero'}" aria-label="${label}">
+      <div class="ph"><span class="pl">${label}</span><b class="num">${fmtN(n)}</b><button class="btn quiet sm" data-todo="${key}">${open}</button></div>
+      <div class="pc${more > 0 ? ' stack' : ''}">${body}<div class="pf">${foot}</div></div></section>`;
+  keepFocus(() => { box.innerHTML = [
+    pile('cand', '판정할 후보', cands ? S.cand.counts.signal : 0, '후보함 열기',
+      top ? `<div class="pt">${esc(top.title || top.id)}</div><div class="sig"><span>${esc(top.id)}</span>${sig(top)}</div>`
+          : `<p class="pe">${cands ? '판정할 후보가 없습니다.' : '후보를 불러오는 중…'}</p>`,
+      top ? `<button class="btn line sm" data-dec="read" data-id="${esc(top.id)}">읽을 것에</button><button class="btn quiet sm" data-dec="hold" data-id="${esc(top.id)}">보류</button><button class="btn quiet sm" data-dec="exclude" data-id="${esc(top.id)}">제외</button><span class="hint">맨 위 1장${cands.length > 1 ? `, 뒤에 ${fmtN(S.cand.counts.signal - 1)}장` : ''}</span>` : '',
+      cands ? cands.length - 1 : 0),
+    pile('fetched', '정리 전', fetched.length, '서재에서 보기',
+      fetched[0] ? `<div class="pt plain"><span class="none">아직 내 결론 없음</span>${esc(fetched[0].title)}</div><div class="sig"><span>${esc(fetched[0].id)}</span>${fetched[0].published ? `<span>발표 ${esc(fmtDate(fetched[0].published))}</span>` : ''}</div>`
+                 : '<p class="pe">정리할 논문이 없습니다.</p>',
+      fetched[0] ? `<button class="btn line sm" data-paper="${esc(fetched[0].id)}">열어서 정리 시키기</button><span class="hint">발표일 순${fetched.length > 1 ? `, 뒤에 ${fetched.length - 1}편` : ''}</span>` : '',
+      fetched.length - 1),
+    pile('pub', '게시 전 초안', drafts.length, '발행 열기',
+      drafts[0] ? `<div class="pt">${esc(drafts[0].title)}</div>${draftPeek(drafts[0])}` : '<p class="pe">게시할 초안이 없습니다.</p>',
+      drafts[0] ? `${draftOk(drafts[0])}<button class="btn line sm" data-todo="pub">발행에서 열기</button>${drafts.length > 1 ? `<span class="hint">뒤에 ${drafts.length - 1}개</span>` : ''}` : '',
+      drafts.length - 1),
+  ].join(''); });
 }
 
 /* ── 후보함 ───────────────────────────────── */
@@ -1238,6 +1539,7 @@ document.addEventListener('keydown', e => {   // 후보함 단축키 — 입력 
   if (k === 'j' || k === 'k') { e.preventDefault(); return candMove(items[Math.min(items.length - 1, Math.max(0, i + (k === 'j' ? 1 : -1)))].id); }
   const id = items[i].id;
   if (k === 'o') { e.preventDefault(); return document.querySelector(`.cand[data-cand="${CSS.escape(id)}"] button.t`)?.click(); }
+  if (k === 'u' && S.lastDec) { e.preventDefault(); return $('#cand-undo')?.click(); }
   const dec = { r: 'read', h: 'hold', x: 'exclude' }[k];
   if (dec) { e.preventDefault(); S.candIdx = i; document.querySelector(`.cand[data-cand="${CSS.escape(id)}"] button[data-dec="${dec}"]`)?.click(); }
 });
@@ -1251,31 +1553,37 @@ async function loadCand() {
 }
 function renderCand() {
   const c = S.cand, dn = DEC_NAMES;
-  const head = `<div class="cand-head">
-    <span class="seg" role="group" aria-label="후보 보기">${[['signal', '신호 통과', c.counts.signal], ['all', '미판정 전체', c.counts.all], ['decided', '판정함', c.counts.decided]]
-      .map(([k, n, v]) => `<button class="btn" data-cv="${k}" aria-pressed="${S.candView === k}">${n} ${fmtN(v)}</button>`).join('')}</span>
+  const head = `<div class="cand-head"><div class="pageh"><h1>후보함</h1><span class="sub">받은 카드 더미 — 고른 한 장만 떠오르고, 판정하면 서재나 보류·제외로 갑니다</span></div></div>`;
+  const tabs = `<div class="ix" role="group" aria-label="후보 보기">${[['signal', '신호 통과', c.counts.signal], ['all', '미판정 전체', c.counts.all], ['decided', '판정함', c.counts.decided]]
+      .map(([k, n, v]) => `<button class="btn" role="tab" data-cv="${k}" aria-pressed="${S.candView === k}" aria-selected="${S.candView === k}">${n}<span class="n">${fmtN(v)}</span></button>`).join('')}</div><div class="cand-rule">
     <span class="hint">GitHub ★·HN·인용 중 하나라도 기준을 넘으면 “신호 통과” (합산하지 않음) · <span class="sig" style="display:inline"><span class="hit">굵은 값</span></span>이 넘은 신호</span>
-    ${S.candView !== 'decided' && c.items.length ? '<span class="keys">단축키 <kbd>j</kbd> <kbd>k</kbd> 이동 · <kbd>o</kbd> 초록 · <kbd>r</kbd> 읽을 것에 · <kbd>h</kbd> 보류 · <kbd>x</kbd> 제외</span>' : ''}</div>`;
+    ${S.candView !== 'decided' && c.items.length ? '<span class="keys">단축키 <kbd>j</kbd> <kbd>k</kbd> 이동, <kbd>o</kbd> 초록, <kbd>r</kbd> 읽을 것에, <kbd>h</kbd> 보류, <kbd>x</kbd> 제외, <kbd>u</kbd> 되돌리기</span>' : ''}</div>`;
   if (!c.items.length) {
-    $('#main').innerHTML = head + `<div class="empty"><h2>${S.candView === 'decided' ? '판정한 후보가 없습니다' : '판정할 후보가 없습니다'}</h2>
-      <p>대화창에서 <span class="ex">2026년 10~11월 후보 찾아줘</span>처럼 시키면 Claude 가 후보를 모아 여기에 넣습니다.</p></div>`;
+    $('#main').innerHTML = head + `<div class="cand-wrap"><div>${tabs}<div class="cand-list"><div class="empty"><h2>${S.candView === 'decided' ? '판정한 후보가 없습니다' : '판정할 후보가 없습니다'}</h2>
+      <p>대화창에서 <span class="ex">2026년 10~11월 후보 찾아줘</span>처럼 시키면 Claude 가 후보를 모아 여기에 넣습니다.</p></div></div></div></div>`;
     return;
   }
-  $('#main').innerHTML = head + c.items.map(x => {
-    const sig = [['stars', x.stars, 'GitHub ★', '코드 저장소 GitHub 스타'], ['hn', x.hn, 'HN', 'Hacker News 점수'], ['cit', x.cit, '인용', 'Semantic Scholar 인용 수']]
-      .filter(([, v]) => v).map(([k, v, l, t]) => `<span class="${x.signals.includes(k) ? 'hit' : ''}" title="${t}${x.signals.includes(k) ? ' — 기준 넘음' : ''}">${l} ${fmtN(v)}</span>`);
-    if (x.upvotes) sig.push(`<span title="Hugging Face Daily Papers 추천 수">HF 추천 ${fmtN(x.upvotes)}</span>`);
+  const selX = c.items.find(x => x.id === S.candSel);
+  const side = `<aside class="cand-side" aria-label="고른 후보와 판정 기록">
+    ${S.candView !== 'decided' && selX && S.abs[selX.id] ? `<div class="cs-card"><div class="k">고른 후보</div><div class="cs-t">${esc(selX.title || selX.id)}</div>
+      <div class="sig"><span>${esc(selX.id)}</span><span>출처 ${esc(selX.src.join(', '))}</span></div>
+      <div class="cs-abs">${S.abs[selX.id] ? esc(S.abs[selX.id]).slice(0, 420) + (S.abs[selX.id].length > 420 ? '…' : '') : '<span class="hint"><kbd>o</kbd> 를 누르면 초록을 가져와 여기와 행에 펼칩니다.</span>'}</div></div>` : ''}
+    <div class="cs-log"><div class="k">판정 기록</div><p>판정함 <b class="num">${fmtN(c.counts.decided)}</b>건 — 읽을 것은 서재의 ‘읽을 것’으로 갑니다.</p>
+      ${S.lastDec ? `<p>마지막: <b>${esc(DEC_NAMES[S.lastDec.dec])}</b> ${esc((S.lastDec.title || S.lastDec.id).slice(0, 40))}</p>
+        <button class="btn line sm" id="cand-undo">${ic('undo')}되돌리기 <kbd>u</kbd></button>` : '<p class="hint">아직 이번에 판정한 후보가 없습니다.</p>'}</div></aside>`;
+  $('#main').innerHTML = head + '<div class="cand-wrap"><div>' + tabs + '<div class="cand-list">' + c.items.map(x => {
     const open = S.openAbs.has(x.id);
     return `<div class="cand${S.candView !== 'decided' && x.id === S.candSel ? ' sel' : ''}" data-cand="${esc(x.id)}"><div class="row"><div class="info">
       <button class="t" data-abs="${esc(x.id)}" aria-expanded="${open}">${esc(x.title || x.id)}</button>
-      <div class="sig"><span>${esc(x.id)}</span>${sig.join('')}<span title="후보를 찾은 곳 (hf: Hugging Face, hn: Hacker News, s2: Semantic Scholar, kw: 관심 키워드)">출처 ${esc(x.src.join(', '))}</span></div>
+      <div class="sig"><span>${esc(x.id)}</span><span title="후보를 찾은 곳 (hf: Hugging Face, hn: Hacker News, s2: Semantic Scholar, kw: 관심 키워드)">출처 ${esc(x.src.join(', '))}</span></div>
       ${open ? `<div class="abstract">${S.abs[x.id] === undefined ? '초록 가져오는 중…' : esc(S.abs[x.id] || '초록을 가져오지 못했습니다 (HF·arXiv 응답 없음).')}</div>` : ''}
-      </div><div class="acts">
+      </div><div class="nums sig">${[['stars', x.stars, 'GitHub ★', 'GitHub 스타'], ['hn', x.hn, 'HN', 'Hacker News 점수'], ['cit', x.cit, '인용', 'Semantic Scholar 인용 수'], ['hf', x.upvotes, 'HF 추천', 'Hugging Face 추천']]
+        .map(([k, v, l, t]) => `<span class="${(x.signals || []).includes(k) ? 'hit' : ''}" title="${t}${(x.signals || []).includes(k) ? ' — 기준 넘음' : ''}">${v ? `${l} ${fmtN(v)}` : ''}</span>`).join('')}</div><div class="acts">
       ${S.candView === 'decided'
         ? `<span class="chip">${dn[x.decision]}</span><button class="btn quiet sm" data-dec="" data-id="${esc(x.id)}">되돌리기</button>`
         : `<button class="btn sm${x.id === S.candSel ? ' primary' : ''}" data-dec="read" data-id="${esc(x.id)}">읽을 것에</button><button class="btn sm" data-dec="hold" data-id="${esc(x.id)}">보류</button><button class="btn quiet sm" data-dec="exclude" data-id="${esc(x.id)}">제외</button>`}
       </div></div></div>`;
-  }).join('');
+  }).join('') + '</div></div>' + side + '</div>';
 }
 
 /* ── 대화 ─────────────────────────────────── */
@@ -1326,7 +1634,9 @@ function renderSess() {
   setComposer(ok);
   if (!ok) $('#msgs').insertAdjacentHTML('beforeend', `<div class="notice" id="locked">${esc(b.how)}</div>`);
 }
+function chatDot() { const d = $('#chat-dot'); if (!d) return; d.hidden = !S.chatId; d.className = 'dot' + (S.running ? ' run' : ''); d.title = S.running ? '대화 진행 중' : '마지막 대화가 있습니다'; }
 function setComposer(on) {
+  chatDot();
   $('#input').disabled = !on || S.running; $('#send').disabled = !on || S.running;
   $('#stop').style.display = S.running ? '' : 'none';
 }
@@ -1427,7 +1737,7 @@ function newChatMenu(btn) {
 }
 function setTabs(v) {
   S.view = v; document.body.dataset.view = v;   // 서재 목록 칸은 서재 탭에서만 (CSS)
-  for (const k of ['lib', 'cand', 'cmp', 'pub']) $('#tab-' + k).setAttribute('aria-selected', v === k);
+  for (const k of ['home', 'cand', 'lib', 'cmp', 'pub']) $('#tab-' + k).setAttribute('aria-selected', v === k);
   renderCmpTab();
 }
 const loading = what => `<div class="loading" role="status"><span class="hint">${what} 불러오는 중…</span><div class="skeleton" style="width:70%"></div><div class="skeleton"></div><div class="skeleton" style="width:85%"></div></div>`;
@@ -1436,7 +1746,13 @@ function setView(v) {
   if (v === 'pub') { S.sel = null; renderLib(); renderAttach(); $('#main').innerHTML = loading('초안'); loadPub(); }
   else if (v === 'cmp') { S.sel = null; renderLib(); renderAttach(); $('#main').innerHTML = loading('비교'); renderCompare(); }
   else if (v === 'cand') { S.sel = null; renderLib(); renderAttach(); $('#main').innerHTML = loading('후보'); loadCand(); }
-  else if (S.sel && S.sel.kind === 'paper') showPaper(S.sel.id); else welcome();
+  else if (v === 'home') { renderLib(); renderAttach(); welcome(); }
+  else if (S.sel && S.sel.kind === 'paper') showPaper(S.sel.id);
+  else if (S.sel && S.sel.kind === 'doc') showDoc(S.sel.dkind, S.sel.name);
+  else {   // 서재를 처음 열면 가장 최근에 정리한 카드를 손에 든다
+    const first = S.lib && S.lib.papers.filter(p => p.conclusion).sort((a, b) => b.noted_at - a.noted_at)[0];
+    if (first) showPaper(first.id); else { renderLib(); $('#main').innerHTML = `<div class="empty"><h2>서랍이 비어 있습니다</h2><p>왼쪽 서랍에서 카드를 고르거나, 대화 칸에서 <span class="ex">2603.28052 정리해줘</span>처럼 시키세요.</p></div>`; }
+  }
 }
 
 /* ── 이벤트 연결 ──────────────────────────── */
@@ -1461,17 +1777,25 @@ document.addEventListener('click', async ev => {
   if (t.dataset.todo) {   // 홈 할 일: 서재 거르기 또는 그 탭으로
     const k = t.dataset.todo;
     if (k === 'cand' || k === 'pub') { setView(k); $('#tab-' + k).focus(); return; }   // 누른 버튼이 사라지므로 그 탭으로
-    S.filter = k; renderFilters(); renderLib();
+    S.filter = k; setView('lib'); renderFilters(); renderLib();
     if (mq.matches) document.body.classList.add('show-lib');
     const first = $('#lib-list .item'); if (first) rove(first);
     return;
   }
+  if (t.id === 'cand-undo' && S.lastDec) {
+    const id = S.lastDec.id; S.lastDec = null;
+    try { await api(`/api/candidates/${id}/decision`, { method: 'PUT', body: { decision: null } }); toast('마지막 판정을 되돌렸습니다'); S.candSel = id;
+      await Promise.all([loadCand(), loadLib()]); } catch (e) { toast(e.message); } return;
+  }
+  if (t.id === 'st-tab') { const m = $('#st-menu'), open = m.hidden; m.hidden = !open; t.setAttribute('aria-expanded', open); if (open) m.querySelector('[aria-pressed="true"]')?.focus(); return; }
   if (t.id === 'edit-notes') return openEditor();
   if (t.id === 'ed-cancel') return closeEditor(false);
   if (t.id === 'ed-save') return saveEditor();
   if (t.id === 'ed-reload') { S.editing = null; return showPaper(S.paper.id, true); }
   if (t.dataset.goto) { const h = document.getElementById(t.dataset.goto); if (h) { h.scrollIntoView({ block: 'start', behavior: 'smooth' }); h.focus({ preventScroll: true }); } return; }
   if (t.dataset.jump) { const el = $('#' + t.dataset.jump); if (el) { el.scrollIntoView({ block: 'start', behavior: 'smooth' }); el.focus({ preventScroll: true }); } return; }
+  if (t.dataset.cmprow) { S.cmpOpen = S.cmpOpen || new Set(); const l = t.dataset.cmprow; S.cmpOpen.has(l) ? S.cmpOpen.delete(l) : S.cmpOpen.add(l); keepFocus(() => renderCompare()); return; }
+  if (t.dataset.desktab) { S.deskTab = t.dataset.desktab; keepFocus(() => welcome()); return; }
   if (t.dataset.tagf) { S.tag = S.tag === t.dataset.tagf ? null : t.dataset.tagf; keepFocus(() => { renderFilters(); renderLib(); }); return; }
   if (t.dataset.tagdel) return saveTags(S.paper.tags.filter(x => x !== t.dataset.tagdel));
   if (t.dataset.tagadd) return saveTags([...S.paper.tags, t.dataset.tagadd]);
@@ -1514,6 +1838,7 @@ document.addEventListener('click', async ev => {
   }
   if (t.dataset.dec !== undefined) {
     const id = t.dataset.id, dec = t.dataset.dec || null;
+    if (dec && S.cand) { const x = S.cand.items.find(y => y.id === id); S.lastDec = { id, dec, title: x && x.title }; } else if (!dec) S.lastDec = null;
     if (dec && S.cand) S.candIdx = S.cand.items.findIndex(x => x.id === id);   // 판정 뒤에는 같은 자리(다음 후보)를 고른다
     try { await api(`/api/candidates/${id}/decision`, { method: 'PUT', body: { decision: dec } });
       toast(dec ? `${DEC_NAMES[dec]}(으)로 옮겼습니다` : '되돌렸습니다');
@@ -1530,6 +1855,7 @@ document.addEventListener('click', async ev => {
     case 'stop': try { await api(`/api/chats/${S.chatId}/cancel`, { method: 'POST' }); } catch (e) { toast(e.message); } return;
     case 'detach': S.attach = false; return renderAttach();
     case 'reattach': S.attach = true; return renderAttach();
+    case 'tab-home': return setView('home');
     case 'tab-lib': return setView('lib');
     case 'tab-cand': return setView('cand');
     case 'tab-cmp': return setView('cmp');
@@ -1581,11 +1907,14 @@ document.addEventListener('click', async ev => {
         st.textContent = '저장됨 ' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }); S.paper.memo = $('#memo').value; }
       catch (e) { st.textContent = ''; toast(e.message); } return;
     }
+    case 'chat-open':   // 접힘 띠의 '대화'
+    case 'chat-close':   // 대화 칸 머리의 접기
     case 'chat-toggle': {   // 좁은 화면: 서랍 열기 / 넓은 화면: 대화 칸 접기 (기억)
       if (matchMedia('(max-width: 1180px)').matches) { document.body.classList.toggle('chat-open'); return syncChatBtn(); }
       const hide = !document.body.classList.contains('chat-hidden');
       document.body.classList.toggle('chat-hidden', hide);
-      try { localStorage.setItem('pa.chatHidden', hide ? '1' : ''); } catch { /* 기억 못 해도 이번 화면에선 동작 */ }
+      try { localStorage.setItem('pa.chatShown', hide ? '' : '1'); } catch { /* 기억 못 해도 이번 화면에선 동작 */ }
+      if (!hide) ($('#input').disabled ? $('#new-chat') : $('#input')).focus();
       return syncChatBtn();
     }
     case 'lib-toggle': return document.body.classList.toggle('show-lib');
@@ -1654,17 +1983,19 @@ const narrow = () => {
 };
 function syncChatBtn() {   // 대화 버튼이 지금 대화 칸이 보이는지 알린다
   const shown = mqChat.matches ? document.body.classList.contains('chat-open') : !document.body.classList.contains('chat-hidden');
-  $('#chat-toggle').setAttribute('aria-pressed', shown);
+  $('#chat-toggle').setAttribute('aria-pressed', shown); $('#chat-open')?.setAttribute('aria-expanded', shown);
 }
-try { if (localStorage.getItem('pa.chatHidden')) document.body.classList.add('chat-hidden'); } catch { /* 기본은 보임 */ }
+// 대화 칸은 접어 두는 것이 기본 (읽는 폭을 지킨다) — 사용자가 펼치면 기억, 일을 보내면 펼친다
+try { if (localStorage.getItem('pa.chatShown') !== '1') document.body.classList.add('chat-hidden'); } catch { document.body.classList.add('chat-hidden'); }
 mq.addEventListener('change', narrow); narrow();
 mqChat.addEventListener('change', syncChatBtn); syncChatBtn();
 new MutationObserver(syncChatBtn).observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
+initLibResize();
 (async () => {
   try {
     await Promise.all([loadStatus(), loadLib()]);
-    if (location.hash === '#pub') { setView('pub'); history.replaceState(null, '', '/'); } else welcome();
+    if (location.hash === '#pub') { setView('pub'); history.replaceState(null, '', '/'); } else setView('home');
     renderCmpTab(); loadCand(); loadPubCount(); await loadChats();
   } catch (e) {
     $('#main').innerHTML = `<div class="empty"><h2>서버에 연결하지 못했습니다</h2><p>${esc(e.message)}<br>터미널에서 <span class="ex">python -m paper_analyst serve</span> 가 켜져 있는지 확인하세요.</p></div>`;

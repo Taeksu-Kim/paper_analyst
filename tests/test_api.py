@@ -110,7 +110,7 @@ def test_library_and_status(env):
 
 
 def test_candidates(env):
-    _, _, calls, mk = env
+    root, _, calls, mk = env
     c = mk()
     r = c.get("/api/candidates").json()
     assert [x["id"] for x in r["items"]] == ["2610.14162"]          # 서재에 있는 2603.28052 는 빠짐
@@ -126,6 +126,11 @@ def test_candidates(env):
     assert c.get("/api/candidates").json()["counts"]["signal"] == 0
     assert c.put("/api/candidates/2610.14162/decision", json={"decision": "bad"}).status_code == 400
     assert c.put("/api/candidates/0000.00000/decision", json={"decision": "read"}).status_code == 404
+    # 파일이 그대로면 다시 넣지 않지만, 바뀌면(후보 추가) 다음 요청에 보이고 내린 판정은 그대로
+    with (root / "library" / "candidates" / "x.jsonl").open("a") as f:
+        f.write("\n" + json.dumps({"id": "2611.00001", "title": "New", "src": ["hn"], "hn_points": 9, "signals": ["hn"]}))
+    r = c.get("/api/candidates").json()
+    assert [x["id"] for x in r["items"]] == ["2611.00001"] and r["counts"]["decided"] == 1
 
 
 def test_chat_two_turns_busy_cancel_restart(env):
@@ -484,3 +489,12 @@ def test_notes_edit_conflict_and_validation(env):
     ok = c.put("/api/papers/2603.28052/notes", json={"text": "# Meta-Harness\n\n## 결론\n**고친 결론.**\n", "base_mtime": cur["notes_mtime"]})
     assert ok.status_code == 200
     assert "고친 결론" in mk().get("/api/papers/2603.28052").json()["notes_html"]
+
+
+def test_paper_card_parts(env):
+    """카드 앞면 칸: 결론 절의 라벨 항목이 순서대로, 정리 전 논문은 빈 목록."""
+    _, _, _, mk = env
+    c = mk()
+    parts = c.get("/api/papers/2603.28052").json()["parts"]
+    assert [x["label"] for x in parts] == ["가져갈 것", "믿어도 되는 결과"] and "원본 trace" in parts[0]["html"]
+    assert c.get("/api/papers/2604.15597").json()["parts"] == []

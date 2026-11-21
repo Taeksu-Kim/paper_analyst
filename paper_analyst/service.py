@@ -113,6 +113,8 @@ class Service:
                 "authors": f["meta"].get("authors", []), "abs_url": f"https://arxiv.org/abs/{aid}",
                 "notes_html": L.to_html(f["notes"]) if f["notes"] else "",
                 "notes_md": f["notes"] or "", "notes_mtime": self._notes_mtime(aid),
+                # 카드 앞면: 결론 절의 '- **라벨:** 내용' 항목 (가져갈 것·믿어도 되는 결과·해석에 주의할 결과·읽는다면 …) — 비교 탭과 같은 함수
+                "parts": [{"label": x["label"], "html": L.to_html(x["md"])} for x in L.conclusion_parts(f["notes"])] if f["notes"] else [],
                 "private_html": L.to_html(f["private"]) if f["private"] else "",
                 "memo": f["memo"], "can_memo": (self.root / "library" / "papers" / aid / "meta.json").is_file(),
                 "links": links, "suggest_links": suggest_links, "suggest_tags": suggest_tags,
@@ -419,17 +421,22 @@ class Service:
 
     # ── 후보함 ──────────────────────────────────────────
     def import_candidates(self) -> int:
-        n = 0
-        for f in sorted((self.root / "library" / "candidates").glob("*.jsonl")):
+        files = sorted((self.root / "library" / "candidates").glob("*.jsonl"))
+        sig = tuple((f.name, f.stat().st_mtime_ns, f.stat().st_size) for f in files)
+        if sig == getattr(self, "_cand_sig", None):  # 목록을 열 때마다 부르므로 파일이 그대로면 다시 넣지 않는다
+            return 0
+        rows = []
+        for f in files:
             for line in f.read_text(encoding="utf-8").splitlines():
                 try:
                     c = json.loads(line)
                 except json.JSONDecodeError:
                     continue
                 if c.get("id"):
-                    self.store.upsert_candidate(c, f.name)
-                    n += 1
-        return n
+                    rows.append((c, f.name))
+        self.store.upsert_candidates(rows)
+        self._cand_sig = sig
+        return len(rows)
 
     def candidates(self, view: str = "signal") -> dict:
         self.import_candidates()
