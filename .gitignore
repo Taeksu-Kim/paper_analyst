@@ -19,3 +19,7 @@ profiles/active
 data/
 # 발행 초안 (본인 글 — 개인 문체·맥락이 들어갈 수 있어 git 제외)
 posts/
+
+# 움직이는 도식 렌더 부산물 (scene.gif 만 커밋)
+docs/motion/*/out/
+docs/motion/*/stills/

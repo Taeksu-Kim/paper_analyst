@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>motion scene</title>
+<!-- 미리보기용 웹폰트. 렌더러는 스킬에 설치된 Pretendard 파일을 직접 넣으므로 오프라인에서도 같다 -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<style>
+  /* ---- 시각 체계 (토큰) — 색·글자·면은 여기서만 정한다. 장면에서 px·색을 새로 쓰지 않는다 -----------
+     근거: ui-design 재디자인 (2026-11-21) — 면은 바탕 톤으로(테두리·그림자 없음), 색은 뜻(비용/이득)에만,
+     위계는 회색 단계로, 큰 숫자는 결론 하나. 바탕·강조색은 장면의 콘셉트 카드가 정하면 :root 만 바꾼다. */
+  :root {
+    --bg: #e4e8ee; --surface: #ffffff; --surface-2: #f2f4f7;
+    --ink: #141a22; --ink-2: #353e4a; --ink-3: #56606e; --ink-4: #98a2ae;
+    --bad: #b42a20; --bad-tint: #f9d9d5; --good: #1f4fd1; --good-tint: #d8e3fb;
+    --r-panel: 22px; --r-inner: 12px; --r-row: 8px;
+    --pad-stage: 36px; --pad-panel: 16px; --gap-block: 24px; --gap-col: 32px; --gap-row: 8px;
+    --row-h: 40px;
+    --t-title: 700 40px/1.22 "Pretendard Variable", sans-serif;     /* 제목 = 결론 문장 */
+    --t-head:  600 28px/1.3  "Pretendard Variable", sans-serif;     /* 묶음 이름 */
+    --t-body:  500 26px/1.4  "Pretendard Variable", sans-serif;     /* 항목 */
+    --t-strong:650 26px/1.4  "Pretendard Variable", sans-serif;     /* 강조 항목 */
+    --t-label: 500 24px/1.35 "Pretendard Variable", sans-serif;     /* 라벨 (최소 크기) */
+    --t-label-strong: 650 24px/1.35 "Pretendard Variable", sans-serif;
+    --t-code:  500 24px/1.4 "DejaVu Sans Mono", Menlo, Consolas, "Pretendard Variable", monospace;   /* 영문 고정폭, 한글은 Pretendard로 (CJK 고정폭이 끼면 벌어진다) */
+    /* 두 층 (references/compose.md §3): 결론 층 = 피드에서 읽힘, 과정 층 = 18px 디테일. 중간 크기를 늘리지 않는다 */
+    --t-key:    650 26px/1.25 "Pretendard Variable", sans-serif;    /* 결론 층: 열 이름·핵심 라벨 */
+    --t-count:  750 64px/1 "Pretendard Variable", sans-serif;       /* 결론 층: 핵심 숫자 */
+    --t-detail: 500 18px/1.35 "Pretendard Variable", sans-serif;    /* 과정 층: 화살표 이름·단계·설명 */
+    --t-num:   750 108px/0.9 "Pretendard Variable", sans-serif;     /* 결론 숫자 */
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); }
+  body { font-family: "Pretendard Variable", Pretendard, system-ui, sans-serif; color: var(--ink);
+         -webkit-font-smoothing: antialiased; word-break: keep-all; }
+  /* 무대: 크기는 아래 MOTION 설정과 같아야 한다 */
+  #stage { position: relative; width: 800px; height: 1000px; overflow: hidden;
+           display: flex; flex-direction: column; gap: var(--gap-block); padding: var(--pad-stage); }
+
+  /* ---- 부품 — 장면은 이 부품을 조립한다 (references/parts.md) ---------------------------------- */
+  .kicker { font: var(--t-label); color: var(--ink-3); margin-bottom: 8px; }
+  .title  { font: var(--t-title); letter-spacing: -0.02em; }
+  .title em { font-style: normal; color: var(--good); }               /* 결론 단어 하나 */
+  .head   { font: var(--t-head); color: var(--ink); margin-bottom: 8px; }   /* 열 이름은 제목보다 한 단계 물러난다 */
+
+  /* 비교: 두 열, 행 1 머리 · 행 2 위 패널 · 행 3 흔적 · 행 4 아래 패널. 같은 행은 같은 높이 — 같은 크기 면에서 찬 곳과 빈 곳이 차이를 말한다 */
+  .compare { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto auto minmax(110px, 1fr) auto;   /* 남는 높이는 흔적(화살표)이 갖는다 — 패널에 빈 면을 만들지 않는다 */
+             column-gap: var(--gap-col); flex: 1; }
+  .compare > .side { display: contents; }
+  .compare > .side:nth-child(1) > * { grid-column: 1; }
+  .compare > .side:nth-child(2) > * { grid-column: 2; }
+  .compare > .side > .head { grid-row: 1; }
+  .compare > .side > .panel:first-of-type { grid-row: 2; }
+  .compare > .side > .marks { grid-row: 3; }
+  .compare > .side > .panel:last-of-type { grid-row: 4; position: relative; z-index: 1; }
+
+  .panel  { background: var(--surface); border-radius: var(--r-panel); padding: var(--pad-panel);
+            display: flex; flex-direction: column; gap: var(--gap-row); }
+  .label  { font: var(--t-label-strong); color: var(--ink-2); display: flex; justify-content: space-between; align-items: baseline; }
+  .label b { font-weight: 600; color: var(--ink-2); }                  /* 라벨 오른쪽 값 (예: 도구 호출 4) */
+
+  /* 항목 줄: 폭·높이가 모두 같다. 보통 줄은 무채, 문제·결과만 상태 표시 */
+  .row    { height: var(--row-h); border-radius: var(--r-row); padding: 0 12px; display: flex; align-items: center;
+            justify-content: space-between; font: var(--t-body); color: var(--ink); background: var(--surface-2); }
+  .row .tag { font: var(--t-label-strong); color: var(--bad); }
+  .row.gone .tag { color: var(--ink-2); }
+  .row .tag.go { color: var(--ink-3); font-weight: 600; } .row .tag.stay { color: var(--good); font-weight: 600; }
+  .row.warn { background: var(--bad-tint); }
+  .row.gone { background: var(--surface-2); color: var(--ink-3); }
+  .row.gone .text { text-decoration: line-through 1.5px var(--ink-3); }
+  .row.key  { background: var(--good-tint); color: var(--good); font: var(--t-strong); }
+  /* 한도선: 담을 수 있는 끝. 패널 바닥에 붙어 찬 곳·빈 곳이 한도 대비로 읽힌다 */
+  /* 담는 곳: 정해진 칸 수만 보인다 — 넘친 줄은 한도선에서 실제로 잘린다 */
+  .log    { height: calc(var(--cap, 3) * var(--row-h) + (var(--cap, 3) - 1) * var(--gap-row)); overflow: hidden; display: flex; flex-direction: column; gap: var(--gap-row);
+          }
+  .log > * { flex: none; }   /* 줄은 줄어들지 않는다 — 못 들어간 줄은 잘린다 */
+  .squeeze { position: relative; height: calc(var(--h, 44) * 1px); flex: none; overflow: hidden; border-radius: var(--r-row); }
+  .squeeze > .row { position: absolute; inset: 0; height: auto; }
+  .row.gone.small { font: var(--t-label); }
+  /* 한도선: 이름표가 선 위에 걸린다 (목록의 한 줄로 읽히지 않게) */
+  .limit  { position: relative; border-top: 2px dashed var(--ink-3); margin: 18px 0 4px; height: 0; }
+  .limit > span:not(.over) { position: absolute; right: 0; top: -15px; background: var(--surface); padding-left: 8px; font: var(--t-label); color: var(--ink-3); line-height: 28px; }
+  /* 한도를 넘은 줄: 한도선 아래에 통째로, 빨간 점선 — 넘침이 모양으로 보인다 */
+  .row.over { background: var(--surface); outline: 2px dashed var(--bad); outline-offset: -2px; }
+  .row.ghost { visibility: hidden; }   /* 맞은편 높이 맞춤용 */
+  .room   { margin-top: auto; text-align: center; font: var(--t-label); color: var(--ink-3); }   /* 한도 안 남은 자리 — 비어 있음이 뜻일 때 이름을 붙인다 */
+  .limit .tag { font: var(--t-label-strong); color: var(--bad); }
+  .limit { position: relative; } .limit .over { position: absolute; left: 0; right: 0; top: -2px; border-top: 2px solid var(--bad); }   /* 넘친 순간 한도선이 빨개진다 */
+  .zone .code { background: transparent; padding: 0 16px; line-height: 1.25; }
+  .code i { font-style: normal; color: var(--ink-3); }   /* 주석 */
+  .code b { display: inline-block; width: 1.6em; font-weight: 400; color: var(--ink-3); }
+  .steps li b { font: 650 24px/1.25 "Pretendard Variable", sans-serif; }   /* 줄 번호 = 호출 번호 */
+  /* 단계 목록: 번호가 흔적 번호와 짝 — 순서대로 한 줄씩 */
+  .steps  { list-style: none; padding: 0 16px; font: 500 24px/1.25 "Pretendard Variable", sans-serif; color: var(--ink); }
+  .zone .cap { padding: 0 16px; font: var(--t-label); color: var(--ink-3); }   /* 구역 안 첫 줄 설명 — 좌우 줄 수를 맞춘다 */
+  .steps li b { display: inline-block; width: 1.4em; font-weight: 650; color: var(--ink-3); }
+
+  .code   { background: var(--surface-2); border-radius: var(--r-inner); padding: 12px 16px;
+            font: var(--t-code); white-space: pre; color: var(--ink); }
+
+  /* 낱말 줄: n칸 격자 — 흔적(.marks)과 같은 칸 수·같은 안쪽 여백이면 세로로 맞는다 */
+  .words  { display: grid; grid-template-columns: repeat(var(--n, 4), 1fr); text-align: center; font: var(--t-body); color: var(--ink-2); padding: 0 8px; }
+  .zone   { background: var(--surface-2); border-radius: var(--r-inner); padding: 16px 0 12px; margin-top: 8px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+  .zone .label { padding: 0 16px; } .zone .note { padding: 0 16px; }
+  .zone { position: relative; }
+  .zone.box { background: var(--surface-2); outline: 2px dashed var(--ink-3); outline-offset: -2px; }
+  .zone > .row { background: var(--surface); margin: 0 12px; }   /* 구역 안 줄은 흰 면 — 구역 바탕과 구분 */
+  .zone > .tag { position: absolute; top: -14px; right: 20px; padding: 0 8px; background: linear-gradient(var(--surface) 50%, var(--surface-2) 50%);
+              font: var(--t-label-strong); color: var(--ink-2); line-height: 28px; }   /* 구역 이름은 테두리에 걸친다 */
+  .note   { font: var(--t-label-strong); }
+  /* 남는 것: 작은 토큰이 그 자리에 쌓인다 (머묾) */
+  .tray   { display: flex; gap: 8px; padding: 0 16px; }
+  .tray   { align-items: center; font: var(--t-label); color: var(--ink-3); }
+  .chip   { font: var(--t-label-strong); color: var(--ink-2); background: var(--surface); border-radius: var(--r-row); min-width: 36px; text-align: center; padding: 2px 6px; }
+  .foot   { font: var(--t-label); color: var(--ink-3); text-align: right; margin-top: -12px; }   /* 각주: 예시 표시 등 */
+  .note.bad { color: var(--ink-2); } .note.good { color: var(--good); }   /* 빨강은 잃는 것(압축·잘림) 표시에만 */
+  /* 요약: 끝 화면 맨 아래 한 줄 — 이득을 말한다 (제목이 말한 것을 되풀이하지 않는다) */
+  .summary { font: var(--t-head); color: var(--ink); text-align: center; padding-top: 4px; }
+  .summary em { font-style: normal; color: var(--good); }
+
+  /* 왕복 흔적: 가는 화살표(↓ 호출) + 오는 화살표(↑ 결과) 한 쌍 + 번호. 개수 = 횟수. 위 패널 아래에서 시작해 아래 패널까지 */
+  .marks  { display: grid; grid-template-columns: repeat(var(--n, 4), 1fr); grid-template-rows: auto 1fr; row-gap: 4px; padding: 8px calc(var(--pad-panel) + 8px) 0; }
+  .marks .legend { grid-column: 1 / -1; font: var(--t-label); color: var(--ink-3); text-align: center; }   /* 화살표가 나르는 것 */
+  .marks.one { --n: 1; }                                             /* 한 번에 묶인 왕복은 가운데 하나 */
+  .marks i { position: relative; font-style: normal; }
+  .marks i::before, .marks i::after { content: ""; position: absolute; top: 36px; bottom: 0; width: 20px; background: currentColor; }
+  .marks i::before { opacity: var(--down, 1); } .marks i::after { opacity: var(--up, 1); }   /* 가는 것·오는 것을 따로 켠다 */
+  .marks i::before { left: calc(50% - 24px); clip-path: polygon(8px 0, 12px 0, 12px calc(100% - 16px), 20px calc(100% - 16px), 10px 100%, 0 calc(100% - 16px), 8px calc(100% - 16px)); }
+  .marks i::after  { left: calc(50% + 4px);  clip-path: polygon(10px 0, 20px 16px, 12px 16px, 12px 100%, 8px 100%, 8px 16px, 0 16px); }
+  .marks i b { position: absolute; left: 50%; top: 0; transform: translateX(-50%); font: 700 32px/1 "Pretendard Variable", sans-serif; }   /* 번호는 쌍 바로 위 가운데 — 어느 쌍인지 헷갈리지 않는다 */
+  .marks { color: var(--ink-3); } .marks.good { color: var(--good); }   /* 지는 쪽 흔적은 물러난 회색, 이기는 쪽만 색 */
+
+  /* 결론: 라벨 위, 숫자 줄 아래. 이기는 쪽만 색, 지는 쪽은 회색으로 물러난다 (크기는 같게 — 크기만 다르면 조판 실수로 읽혔다) */
+  .verdict { display: grid; justify-items: center; gap: 4px; padding-top: 8px; }
+  .verdict .v-label { font: var(--t-label-strong); color: var(--ink-3); }
+  .verdict .nums { display: flex; align-items: center; gap: 24px; }
+  .verdict .arrow { font: 600 64px/1 "Pretendard Variable", sans-serif; color: #77818e; }
+  .verdict .nums .num { min-width: 96px; text-align: center; }
+  .num { font: var(--t-num); letter-spacing: -0.04em; }
+  .num.before { color: #77818e; }   /* 물러난 값 — 큰 글자 대비 3:1 이상 */ .num.after { color: var(--good); }
+  .num.bad { color: var(--bad); } .num.good { color: var(--good); }
+  /* ---- 두 층 부품 (compose.md) ------------------------------------------------------------------ */
+  .key    { font: var(--t-key); }
+  .detail { font: var(--t-detail); color: var(--ink-3); }
+  .count  { display: flex; align-items: baseline; gap: 8px; }
+  .count .n { font: var(--t-count); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+  .count .u { font: 650 26px/1 "Pretendard Variable", sans-serif; }
+  .lose { color: var(--ink-3); } .win { color: var(--good); }
+  /* 레인·화살표 (인라인 SVG): <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7"
+     orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="context-stroke"/></marker></defs> 를 장면 SVG에 넣는다 */
+  svg text { font-family: "Pretendard Variable", sans-serif; }
+  .lane line { stroke: var(--ink-4); stroke-width: 2; stroke-dasharray: 4 5; }
+  .arrow { stroke: var(--ink-2); stroke-width: 2.5; marker-end: url(#ah); }
+  .arrow.back { stroke: var(--bad); } .arrow.good { stroke: var(--good); stroke-width: 3; }
+  .svg-detail { font-size: 18px; font-weight: 600; fill: var(--ink-2); }
+  /* 그릇(게이지): 칸이 차오르고 한도선을 넘는다 */
+  .gauge-bar { position: relative; height: 48px; background: var(--surface-2); border-radius: 10px; display: flex; gap: 4px; padding: 4px; }
+  .gauge-bar > i { flex: none; width: 68px; border-radius: 7px; background: var(--bad); opacity: .85; }
+  .gauge-bar > i.good { background: var(--good); opacity: 1; } .gauge-bar > i.mute { background: var(--ink-4); }
+  .gauge-bar > i.over { background: repeating-linear-gradient(135deg, var(--bad) 0 8px, #ee8a82 8px 16px); outline: 3px solid var(--bad); outline-offset: -3px; }
+  .gauge-bar > .lim { position: absolute; top: -6px; bottom: -6px; border-left: 3px dashed var(--ink-2); }   /* left는 장면에서 */
+  /* font 단축 속성이 숫자 폭을 되돌리므로 마지막에 다시 건다 */
+  .count .n, .num, .marks i b, .label b, .note, .row, .words, .code, .steps li b, .code b, .summary { font-variant-numeric: tabular-nums; }
+</style>
+
+<style>
+  :root { --good: #2f6f5c; --good-tint: #e3f2ec; }   /* paper_analyst 주 색 계열 — 결론 카드에만 */
+  #stage { display: block; }
+  .abs { position: absolute; }
+  .title { left: 36px; top: 34px; width: 728px; }
+  .numk { font: var(--t-head); font-weight: 750; letter-spacing: -0.02em; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .numk small { font: var(--t-key); font-weight: 600; margin-left: 2px; }
+  .src  { font: var(--t-detail); font-weight: 650; color: var(--ink-2); }
+  .lane-h { font: var(--t-key); color: var(--ink); }
+  .who { --lit: 1; font: var(--t-detail); font-weight: 650; width: 112px; line-height: 1.3;
+         color: color-mix(in srgb, var(--ink) calc(var(--lit) * 100%), var(--ink-4)); }
+  .who::before { content: ""; position: absolute; left: -24px; top: 5px; width: 12px; height: 12px; border-radius: 50%;
+         border: 2px solid currentColor; background: color-mix(in srgb, var(--ink) calc(var(--lit) * 100%), var(--bg)); }
+  .chip2 { font: var(--t-detail); font-weight: 650; color: var(--ink); background: var(--surface); border-radius: var(--r-row); padding: 6px 12px; }
+  .sheet { background: var(--surface); border-radius: var(--r-inner); padding: 12px; }
+  .sheet .h { font: var(--t-detail); font-weight: 650; color: var(--ink-2); margin-bottom: 10px; }
+  .cols { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; height: 110px; }
+  .cols i { background: var(--surface-2); border-radius: 4px; }
+  .cols i.use { background: color-mix(in srgb, var(--ink-3) calc(var(--use, 1) * 70%), var(--surface-2)); }
+  .ext-h { font: var(--t-key); color: var(--ink); }
+  .ext { font: var(--t-detail); color: var(--ink-2); width: 236px; }
+  .ext b { font-weight: 650; color: var(--ink); }
+  .claude { background: var(--ink); color: #fff; border-radius: var(--r-inner); font: var(--t-key); display: flex; align-items: center; justify-content: center; }
+  .card { background: var(--surface); border-radius: var(--r-panel); padding: 14px 18px; box-shadow: 0 0 0 3px var(--good); display: grid; gap: 8px; }
+  .card .row2 { display: grid; grid-template-columns: 210px 1fr; align-items: center; gap: 12px; height: 34px; }
+  .card .row2 b { font: var(--t-key); color: var(--ink); }
+  .card .row2 i { height: 12px; border-radius: 6px; background: var(--surface-2); }
+  .card .row2.lead { background: var(--good-tint); border-radius: var(--r-row); margin: 0 -10px; padding: 0 10px; height: 40px; }
+  .card .row2.lead b { color: var(--good); }
+  .card .row2.lead i { background: color-mix(in srgb, var(--good) 30%, var(--surface)); }
+  .card .tagr { position: absolute; right: 18px; top: -30px; font: var(--t-detail); color: var(--ink-3); }
+  .br { font: var(--t-key); color: var(--ink); }
+  .brd { font: var(--t-detail); color: var(--ink-2); }
+  .mini { display: inline-flex; gap: 6px; vertical-align: middle; }
+  .mini i { width: 34px; height: 42px; border-radius: 6px; background: var(--surface); box-shadow: 0 0 0 2px var(--good);
+            background-image: linear-gradient(var(--good-tint) 0 10px, transparent 10px 16px, var(--surface-2) 16px 20px, transparent 20px 26px, var(--surface-2) 26px 30px, transparent 30px); background-clip: content-box; padding: 5px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ink-3); position: absolute; opacity: 0; }
+  svg.ov { position: absolute; inset: 0; width: 800px; height: 1000px; pointer-events: none; overflow: visible; }
+  svg.ov .ln { fill: none; stroke: var(--ink-3); stroke-width: 2.5; marker-end: url(#ah); }
+  svg.ov .ln.k { stroke: var(--ink); }
+  svg.ov .ln.g { stroke: var(--good); stroke-width: 3; }
+  svg.ov .tick { stroke: var(--ink-4); stroke-width: 2; stroke-dasharray: 3 4; }
+  svg.ov .lane { stroke: var(--ink-4); stroke-width: 2; stroke-dasharray: 4 5; }
+</style>
+</head>
+<body>
+
+
+<div id="stage">
+  <div class="abs title">논문을 찾아 읽고, 외부 평가를 붙여<br><em>실무 결론 카드</em>로</div>
+
+  <!-- 사람 줄 -->
+  <div class="abs lane-h" style="left:36px; top:160px">사람</div>
+  <div class="abs" style="left:41px; top:198px; height:766px; border-left:2px dashed var(--ink-4)"></div>
+  <div class="abs who" id="w1" style="left:58px; top:200px">찾아 달라고 요청</div>
+  <div class="abs who" id="w2" style="left:58px; top:268px">읽을 것 고르기</div>
+  <div class="abs who" id="w3" style="left:58px; top:350px">정리 시키기</div>
+  <div class="abs who" id="w5" style="left:58px; top:700px">필요하면 직접 고침</div>
+  <div class="abs who" id="w4" style="left:58px; top:922px">확인 창에서 게시</div>
+
+  <!-- 1. 후보 모으기 -->
+  <div class="abs src" id="s1" style="left:196px; top:186px">Hugging Face</div>
+  <div class="abs src" id="s2" style="left:196px; top:222px">Hacker News</div>
+  <div class="abs numk" id="n890" style="left:372px; top:186px"><span id="c890">890</span><small>편</small></div>
+  <div class="abs detail" id="fl" style="left:452px; top:166px">GitHub 별·HN 점수로 거름</div>
+  <div class="abs numk" id="n12" style="left:620px; top:186px">12<small>편</small></div>
+  <div class="abs detail" id="run" style="left:372px; top:226px">2026-10~11 한 번 실행한 값</div>
+
+  <!-- 2. 서재 → 받기 -->
+  <div class="abs chip2" id="lib" style="left:196px; top:262px">서재 · 읽을 것 (12편 중 한 편)</div>
+  <div class="abs sheet" id="sheet" style="left:196px; top:332px; width:170px">
+    <div class="h">논문 → 마크다운 절</div>
+    <div class="cols"><i></i><i class="use" id="u1"></i><i></i><i class="use" id="u2"></i><i></i></div>
+  </div>
+  <div class="abs detail" id="need" style="left:330px; top:512px">Claude가 필요한 절만 읽음</div>
+
+  <!-- 외부 평가 -->
+  <div class="abs ext-h" id="eh" style="left:528px; top:318px">외부 평가 <span class="detail">도구가 모아 함께 저장</span></div>
+  <div class="abs ext" id="e1" style="left:528px; top:358px"><b>후속 논문의 인용 문장</b><br>발표 90일이 지난 논문만</div>
+  <div class="abs ext" id="e2" style="left:528px; top:416px"><b>Hacker News 글·댓글</b></div>
+  <div class="abs ext" id="e3" style="left:528px; top:452px"><b>Papers with Code · HF 추천</b></div>
+
+  <!-- 3. Claude -->
+  <div class="abs claude" id="cl" style="left:196px; top:562px; width:170px; height:56px">Claude 정리</div>
+  <div class="abs ext" id="web" style="left:528px; top:568px"><b>웹 글 검색</b> (Claude, 1회)</div>
+
+  <!-- 4. 결론 카드 -->
+  <div class="abs card" id="card" style="left:196px; top:652px; width:568px">
+    <span class="tagr">논문 한 편 = 카드 한 장</span>
+    <div class="row2 lead"><b>결론</b><i></i></div>
+    <div class="row2"><b>가져갈 것</b><i style="width:80%"></i></div>
+    <div class="row2"><b>믿어도 되는 결과</b><i style="width:62%"></i></div>
+    <div class="row2"><b>해석에 주의할 결과</b><i style="width:70%"></i></div>
+  </div>
+
+  <!-- 5. 비교 · 발행 -->
+  <div class="abs" id="cmp" style="left:196px; top:866px; display:flex; align-items:center; gap:14px">
+    <span class="br">비교</span><span class="mini"><i></i><i></i></span><span class="brd">카드끼리 같은 칸 나란히</span></div>
+  <div class="abs" id="pub" style="left:196px; top:924px; display:flex; align-items:baseline; gap:14px">
+    <span class="br">발행</span><span class="brd">Claude가 카드로 글 초안 → 확인 창 → LinkedIn (블로그는 복사)</span></div>
+
+  <svg class="ov" viewBox="0 0 800 1000">
+    <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="context-stroke"/></marker></defs>
+    <line class="tick" id="t1" x1="170" y1="211" x2="190" y2="211"/>
+    <line class="tick" id="t2" x1="170" y1="279" x2="190" y2="279"/>
+    <line class="tick" id="t3" x1="170" y1="361" x2="190" y2="361"/>
+    <line class="tick" id="t5" x1="170" y1="711" x2="190" y2="711"/>
+    <line class="tick" id="t4" x1="170" y1="937" x2="190" y2="937"/>
+    <path class="ln" id="pF"  d="M466 203 L606 203"/>
+    <path class="ln" id="pL"  d="M640 226 C640 262, 560 279, 446 279"/>
+    <path class="ln" id="pE1" d="M520 370 L376 370"/>
+    <path class="ln" id="pE2" d="M520 428 L376 412"/>
+    <path class="ln" id="pE3" d="M520 464 L376 452"/>
+    <path class="ln k" id="pU1" d="M253 488 L253 556"/>
+    <path class="ln k" id="pU2" d="M313 488 L313 556"/>
+    <path class="ln" id="pW"  d="M520 590 L374 590"/>
+    <path class="ln g" id="pC"  d="M281 620 L281 644"/>
+    
+  </svg>
+  <div class="dot" id="d0"></div><div class="dot" id="d1"></div><div class="dot" id="d2"></div><div class="dot" id="d3"></div><div class="dot" id="d4"></div>
+  <div class="dot" id="d5"></div><div class="dot" id="d6"></div><div class="dot" id="d7"></div><div class="dot" id="d8"></div><div class="dot" id="d9"></div>
+</div>
+
+<script>
+/* ---- motion runtime (수정하지 않는다) -------------------------------------------
+   모든 움직임은 시간 t(초)의 순수 함수다. 렌더러가 setTime(t)를 프레임마다 부르고,
+   브라우저로 열면 실제 시간으로 반복 재생된다 (미리보기).
+   - M.tween(sel, t0, dur, {from:{...}, to:{...}}, ease)   opacity · x · y · scale · CSS 변수(--이름)
+   - M.count(sel, from, to, t0, dur, {suffix, ease})         숫자 카운트업
+   - M.dot(sel, pathSel, t0, dur, ease)                     요소를 SVG path 위로 이동 (흐름·넘겨줌)
+   - M.draw(pathSel, t0, dur, ease)                         SVG 선을 그려 나감
+   - M.fn(t => {...})                                       그 밖의 것 (반드시 t만으로 계산)
+   같은 요소·속성에 tween이 여럿이면 시작 시각이 지난 것 중 가장 늦게 시작한 것이 정한다.
+   setTimeout · requestAnimationFrame · CSS transition 으로 시간을 재지 않는다 (렌더 결과가 매번 달라진다).
+------------------------------------------------------------------------------------ */
+const Motion = (cfg) => {
+  const E = {
+    linear: x => x,
+    out: x => 1 - Math.pow(1 - x, 3),
+    inOut: x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2,
+    outBack: x => { const c = 1.70158; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); },
+  };
+  const $ = s => typeof s === 'string' ? document.querySelector(s) : s;
+  const tracks = new Map();   // el -> prop -> [tween]
+  const fns = [];
+  const clamp = x => Math.max(0, Math.min(1, x));
+  const prog = (t, t0, dur, ease) => (E[ease] || E.out)(clamp(dur > 0 ? (t - t0) / dur : (t >= t0 ? 1 : 0)));
+  const api = {
+    duration: cfg.duration, fps: cfg.fps, width: cfg.width, height: cfg.height,
+    tween(sel, t0, dur, { from = {}, to = {} }, ease = 'out') {
+      const el = $(sel); if (!el) throw new Error('tween: 요소 없음 ' + sel);
+      if (!tracks.has(el)) tracks.set(el, new Map());
+      for (const k of new Set([...Object.keys(from), ...Object.keys(to)])) {
+        const m = tracks.get(el); if (!m.has(k)) m.set(k, []);
+        m.get(k).push({ t0, dur, a: from[k] ?? to[k], b: to[k] ?? from[k], ease });
+        m.get(k).sort((p, q) => p.t0 - q.t0);
+      }
+      return api;
+    },
+    count(sel, a, b, t0, dur, { suffix = '', ease = 'out', digits = 0 } = {}) {
+      // tween과 같은 규칙: 같은 숫자에 여러 번 걸면 시작이 지난 것 중 가장 늦은 것이 정한다
+      const el = $(sel); if (!el) throw new Error('count: 요소 없음 ' + sel);
+      el.__fmt = { suffix, digits };
+      return api.tween(el, t0, dur, { from: { '#text': a }, to: { '#text': b } }, ease);
+    },
+    dot(sel, pathSel, t0, dur, ease = 'inOut') {
+      const el = $(sel), path = $(pathSel), L = path.getTotalLength();
+      fns.push(t => {
+        // path 좌표 → 화면 좌표 → 점의 offsetParent 기준 좌표 (SVG가 어디 놓여 있어도 맞는다)
+        const p = prog(t, t0, dur, ease), pt = path.getPointAtLength(L * p);
+        const m = path.getScreenCTM(), r = (el.offsetParent || document.body).getBoundingClientRect();
+        el.style.left = (m.a * pt.x + m.c * pt.y + m.e - r.left) + 'px';
+        el.style.top = (m.b * pt.x + m.d * pt.y + m.f - r.top) + 'px';
+        el.style.transform = 'translate(-50%, -50%)';
+        el.style.opacity = (t < t0 || t > t0 + dur) ? 0 : 1;
+      });
+      return api;
+    },
+    draw(pathSel, t0, dur, ease = 'inOut') {
+      const path = $(pathSel), L = path.getTotalLength();
+      path.style.strokeDasharray = L;
+      fns.push(t => { path.style.strokeDashoffset = L * (1 - prog(t, t0, dur, ease)); });
+      return api;
+    },
+    fn(f) { fns.push(f); return api; },
+    setTime(t) {
+      for (const [el, m] of tracks) {
+        const v = {};
+        for (const [k, list] of m) {
+          let cur = null; for (const tw of list) if (tw.t0 <= t) cur = tw;
+          v[k] = cur ? cur.a + (cur.b - cur.a) * prog(t, cur.t0, cur.dur, cur.ease) : list[0].a;
+        }
+        if ('opacity' in v) el.style.opacity = v.opacity;
+        if ('x' in v || 'y' in v || 'scale' in v)
+          el.style.transform = `translate(${v.x || 0}px, ${v.y || 0}px) scale(${v.scale ?? 1})`;
+        for (const k in v) if (k.startsWith('--')) el.style.setProperty(k, v[k]);
+        if ('#text' in v) { const f = el.__fmt || { suffix: '', digits: 0 }; el.textContent = Number(v['#text']).toFixed(f.digits) + f.suffix; }
+      }
+      for (const f of fns) f(t);
+    },
+  };
+  window.MOTION = { duration: cfg.duration, fps: cfg.fps, width: cfg.width, height: cfg.height };
+  window.setTime = api.setTime;
+  addEventListener('load', () => {
+    api.setTime(0);
+    if (window.__MOTION_RENDER__) return;           // 렌더러가 시간을 맡는다
+    const start = performance.now();
+    const loop = now => { api.setTime(((now - start) / 1000) % cfg.duration); requestAnimationFrame(loop); };
+    requestAnimationFrame(loop);
+  });
+  return api;
+};
+/* ---- end runtime ---------------------------------------------------------------- */
+
+const M = Motion({ duration: 17.5, fps: 15, width: 800, height: 1000 });
+// 0~0.9 완성 화면(포스터) → 0.9~1.4 흐려지며 처음 상태 → 차례로 쌓기 → 끝 화면 머묾 (끝 = 처음)
+const F0 = 0.9, F1 = 1.4;
+const E = x => 1 - Math.pow(1 - Math.max(0, Math.min(1, x)), 3);
+const ap = (t, ta, d = 0.45) => t < F0 ? 1 : t < F1 ? 1 - (t - F0) / (F1 - F0) : E((t - ta) / d);   // 나타남 0..1
+const $ = s => document.querySelector(s);
+// 요소: [선택자, 나타나는 시각, 위에서 내려오는 거리]
+const EL = [['#s1',1.6],['#s2',1.7],['#n890',2.6],['#fl',3.5],['#n12',4.0],['#run',4.1],['#lib',5.6],
+  ['#sheet',6.6,-18],['#eh',7.8],['#e1',7.9],['#e2',8.05],['#e3',8.2],['#need',8.9],['#cl',9.0],['#web',9.5],
+  ['#card',10.7],['#cmp',13.2],['#pub',14.2]];
+const LN = [['#pF',3.5,.5],['#pL',5.0,.6],['#pE1',8.0,.5],['#pE2',8.15,.5],['#pE3',8.3,.5],['#pU1',9.0,.5],['#pU2',9.1,.5],
+  ['#pW',9.6,.45],['#pC',10.3,.4]];
+const WHO = [['#w1','#t1',1.5],['#w2','#t2',4.9],['#w3','#t3',6.4],['#w5','#t5',12.0],['#w4','#t4',14.6]];
+const lens = new Map(LN.map(([s]) => [s, $(s).getTotalLength()]));
+M.fn(t => {
+  for (const [s, ta, dy = 0] of EL) {
+    const a = ap(t, ta), el = $(s);
+    el.style.opacity = a;
+    if (s === '#card') el.style.transform = `scale(${t < F1 ? 1 : 0.94 + 0.06 * a})`;
+    else if (dy) el.style.transform = `translateY(${t < F1 ? 0 : dy * (1 - a)}px)`;
+  }
+  for (const [s, ta, d] of LN) {
+    const el = $(s), L = lens.get(s);
+    el.style.strokeDasharray = L;
+    if (t < F1) { el.style.strokeDashoffset = 0; el.style.opacity = t < F0 ? 1 : 1 - (t - F0) / (F1 - F0); }
+    else { const q = E((t - ta) / d); el.style.opacity = Math.min(1, q * 6); el.style.strokeDashoffset = L * (1 - q); }
+  }
+  for (const [w, k, ta] of WHO) {   // 사람 줄: 흐려져 있다가 그 일을 할 때 켜진다
+    const lit = t < F0 ? 1 : t < F1 ? 1 - (t - F0) / (F1 - F0) : E((t - ta) / 0.3);
+    $(w).style.setProperty('--lit', lit);
+    $(k).style.opacity = 0.25 + 0.75 * lit;
+  }
+  // 절: 쓰는 절이 진해진다
+  const u = t < F1 ? 1 : E((t - 7.3) / 0.4);
+  $('#u1').style.setProperty('--use', u); $('#u2').style.setProperty('--use', u);
+  // 890: 점이 모이는 동안 0 → 890
+  const c = t < F1 ? 890 : Math.round(890 * E((t - 2.5) / 0.8));
+  $('#c890').textContent = c;
+  // 점: 두 출처에서 890 쪽으로 (흐름)
+  for (let i = 0; i < 10; i++) {
+    const el = $('#d' + i), t0 = 1.75 + i * 0.09, p = (t - t0) / 0.75;
+    const fromY = i % 2 ? 233 : 197, x0 = i % 2 ? 312 : 322;
+    if (p <= 0 || p >= 1) { el.style.opacity = 0; continue; }
+    const q = E(p);
+    el.style.left = (x0 + (366 - x0) * q) + 'px'; el.style.top = (fromY + (203 - fromY) * q) + 'px';
+    el.style.opacity = 1;
+  }
+});
+</script>
+</body>
+</html>
