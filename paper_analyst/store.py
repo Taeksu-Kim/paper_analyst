@@ -55,15 +55,19 @@ class Store:
                    "updated_at=excluded.updated_at", (aid, status, time.time()))
 
     # 후보
-    def upsert_candidate(self, c: dict, file: str) -> None:
-        self.x("""INSERT INTO candidates (id,title,src,signals,stars,hn,cit,upvotes,file,imported_at)
+    def upsert_candidates(self, rows: list[tuple[dict, str]]) -> None:
+        """(후보, 파일 이름) 여러 개를 한 트랜잭션으로 — 줄마다 커밋하면 458줄에 10초 걸렸다 (측정 2026-11-21)."""
+        with self.lock:
+            self.db.executemany("""INSERT INTO candidates (id,title,src,signals,stars,hn,cit,upvotes,file,imported_at)
                   VALUES (?,?,?,?,?,?,?,?,?,?)
                   ON CONFLICT(id) DO UPDATE SET title=COALESCE(excluded.title,title), src=excluded.src,
                     signals=excluded.signals, stars=MAX(COALESCE(stars,0),COALESCE(excluded.stars,0)),
                     hn=MAX(COALESCE(hn,0),COALESCE(excluded.hn,0)), cit=MAX(COALESCE(cit,0),COALESCE(excluded.cit,0)),
                     upvotes=MAX(COALESCE(upvotes,0),COALESCE(excluded.upvotes,0)), file=excluded.file""",
-               (c["id"], c.get("title"), json.dumps(c.get("src", [])), json.dumps(c.get("signals", [])),
-                c.get("stars"), c.get("hn_points"), c.get("cit"), c.get("upvotes"), file, time.time()))
+                [(c["id"], c.get("title"), json.dumps(c.get("src", [])), json.dumps(c.get("signals", [])),
+                  c.get("stars"), c.get("hn_points"), c.get("cit"), c.get("upvotes"), file, time.time())
+                 for c, file in rows])
+            self.db.commit()
 
     def candidates(self) -> list[dict]:
         rows = self.q("SELECT * FROM candidates")

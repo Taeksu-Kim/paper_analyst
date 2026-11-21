@@ -152,12 +152,15 @@ with sync_playwright() as p:
     except Exception:
         b = p.chromium.launch(executable_path=str(FALLBACK[-1]))
     ctx = b.new_context(viewport={"width": 1440, "height": 900}, device_scale_factor=1)
-    ctx.add_init_script("localStorage.setItem('pa.cmp', JSON.stringify(['2603.28052','2505.06120']))")
+    ctx.add_init_script("localStorage.setItem('pa.cmp', JSON.stringify(['2603.28052','2505.06120'])); localStorage.setItem('pa.chatShown', '1')")   # README 캡처는 대화 칸을 펼친 채로
     page = ctx.new_page()
     page.goto(URL + "/")
-    page.wait_for_selector("button.concl")
+    page.wait_for_selector("#todo")               # 첫 화면 = 책상 (할 일 더미 + 결론 카드 서랍)
     page.wait_for_selector(".msg.bot")
-    page.click("button[data-paper='2603.28052']")
+    time.sleep(0.3)
+    page.screenshot(path=str(OUT / "desk.png"))
+    page.click("#tab-lib")
+    page.click("#lib-list button[data-paper='2603.28052']")
     page.wait_for_selector(".links li")
     page.screenshot(path=str(OUT / "library.png"))
     page.click("#tab-cmp")
